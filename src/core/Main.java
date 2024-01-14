@@ -11,7 +11,6 @@ import javax.swing.JOptionPane;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
-import com.jme3.system.JmeContext.Type;
 
 import core.setting.ModelSetting;
 import core.setting.Setting;
@@ -21,8 +20,6 @@ import online.money_daisuki.api.base.ArgumentParserResult;
 
 public class Main {
 	public static void main(final String[] args) {
-		System.setProperty("sun.java2d.uiScale", "1");
-		
 		final ArgumentHandler handler = new ArgumentHandler(args);
 		handler.addSwitch("config", 1);
 		handler.addSwitch("c", 1);
@@ -76,7 +73,7 @@ public class Main {
 				});
 			}
 		};
-		app.start(Type.Canvas);
+		app.start();
 	}
 	
 	private static Setting loadSetting(final ArgumentParserResult result) {

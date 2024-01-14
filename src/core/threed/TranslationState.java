@@ -336,8 +336,8 @@ public final class TranslationState extends BaseAppState implements EditionState
 		app.getInputManager().deleteMapping("TranslateMousePressed");
 		app.getRenderManager().removeMainView("Vector3f cursor");
 	}
-		
-
+	
+	
 	private static final class Wrappler {
 		private final Spatial spatial;
 		private final Vector3f moveAxes;

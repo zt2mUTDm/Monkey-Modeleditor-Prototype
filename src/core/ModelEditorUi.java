@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -852,17 +851,13 @@ public final class ModelEditorUi {
 		vSplit.setRightComponent(new JScrollPane(componentTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
 				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
 		
-		final Component threeDimView = tdview.getComponent();
+		//final Component threeDimView = tdview.getComponent();
 		
-		threeDimView.setMinimumSize(new Dimension(640, 480));
-		threeDimView.setPreferredSize(new Dimension(640, 480));
+		//threeDimView.setMinimumSize(new Dimension(640, 480));
+		//threeDimView.setPreferredSize(new Dimension(640, 480));
 		
 		final Canvas canvas = new Canvas();
 		canvas.setBackground(Color.BLUE);
-		
-		final JPanel panel = new JPanel(new BorderLayout());
-		panel.setBackground(Color.RED);
-		panel.add(threeDimView);
 		
 		
 		final SetableMutableSingleValueModel<Editable> selectedObjectsTableObject = new SetableMutableSingleValueModelImpl<>();
@@ -871,7 +866,7 @@ public final class ModelEditorUi {
 		
 		final JSplitPane hLeftSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		hLeftSplit.setLeftComponent(vSplit);
-		hLeftSplit.setRightComponent(threeDimView);
+		hLeftSplit.setRightComponent(new JPanel());
 		
 		final JSplitPane hRightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
 		hRightSplit.setLeftComponent(hLeftSplit);
@@ -1318,7 +1313,7 @@ public final class ModelEditorUi {
 					addMenu.add(new JMenuItem(new AbstractAction("Node") {
 						@Override
 						public void actionPerformed(final ActionEvent e) {
-							final NodeEditable newNode = new NodeEditable(app.getAssetManager(), "New node");
+							final NodeEditable newNode = new NodeEditable(app, "New node");
 							createEditable(newNode, selectedNode);
 						}
 					}));
@@ -1663,7 +1658,13 @@ public final class ModelEditorUi {
 				nodeChanged(node);
 			}
 		});
-		tdview.setObject(obj);
+		
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				tdview.setObject(obj);
+			}
+		});
 	}
 	private void setObject0(final Editable obj, final DefaultMutableTreeNode parent) {
 		final DefaultMutableTreeNode node = new DefaultMutableTreeNode(obj);

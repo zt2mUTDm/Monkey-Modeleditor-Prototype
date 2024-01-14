@@ -85,7 +85,7 @@ public final class EditableLoader implements DataSource<Editable> {
 		final String type = map.get("type").asData().asString();
 		switch(type) {
 			case("node"):
-				return(new NodeEditable(app.getAssetManager()));
+				return(new NodeEditable(app));
 			case("model"):
 				return(createModelEditable(map));
 			default:

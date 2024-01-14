@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import com.jme3.asset.AssetManager;
+import com.jme3.app.SimpleApplication;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Quaternion;
@@ -13,6 +13,8 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
+
+import online.money_daisuki.api.base.Requires;
 
 public final class NodeEditable implements Editable {
 	private static final Collection<EditionMode> MODS = new ArrayList<>(1) {
@@ -24,6 +26,8 @@ public final class NodeEditable implements Editable {
 		}
 	};
 	
+	private final SimpleApplication app;
+	
 	private final Node spatial;
 	private final Geometry geo;
 	private final Material selectedMat;
@@ -31,13 +35,15 @@ public final class NodeEditable implements Editable {
 	
 	private final List<Editable> childs;
 	
-	public NodeEditable(final AssetManager asset) {
-		this(asset, "Node");
+	public NodeEditable(final SimpleApplication app) {
+		this(app, "Node");
 	}
-	public NodeEditable(final AssetManager asset, final String name) {
-		this(asset, name, Vector3f.ZERO);
+	public NodeEditable(final SimpleApplication app, final String name) {
+		this(app, name, Vector3f.ZERO);
 	}
-	public NodeEditable(final AssetManager asset, final String name, final Vector3f translation) {
+	public NodeEditable(final SimpleApplication app, final String name, final Vector3f translation) {
+		this.app = Requires.notNull(app, "app == null");
+		
 		childs = new ArrayList<>();
 		
 		spatial = new Node();
@@ -48,10 +54,10 @@ public final class NodeEditable implements Editable {
 		
 		geo = new Geometry("NodeGeometry", b);
 		
-		selectedMat = new Material(asset, "Common/MatDefs/Misc/Unshaded.j3md");
+		selectedMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
 		selectedMat.setColor("Color", ColorRGBA.Red);
 		
-		unselectedMat = new Material(asset, "Common/MatDefs/Misc/Unshaded.j3md");
+		unselectedMat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
 		unselectedMat.setColor("Color", ColorRGBA.White);
 		
 		geo.setMaterial(unselectedMat);
@@ -91,16 +97,12 @@ public final class NodeEditable implements Editable {
 	
 	@Override
 	public void setSelected(final boolean b) {
-		geo.setMaterial(b ? selectedMat : unselectedMat);
-	}
-	
-	@Override
-	public void setName(final String newName) {
-		spatial.setName(newName);
-	}
-	@Override
-	public String getName() {
-		return(spatial.getName());
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				geo.setMaterial(b ? selectedMat : unselectedMat);
+			}
+		});
 	}
 	
 	@Override
@@ -119,7 +121,13 @@ public final class NodeEditable implements Editable {
 	}
 	@Override
 	public void setLocalTranslation(final Vector3f vec) {
-		spatial.setLocalTranslation(vec);
+		final Vector3f newVec = new Vector3f(vec);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalTranslation(newVec);
+			}
+		});
 	}
 	
 	@Override
@@ -128,7 +136,13 @@ public final class NodeEditable implements Editable {
 	}
 	@Override
 	public void setLocalRotation(final Quaternion quat) {
-		this.spatial.setLocalRotation(quat);
+		final Quaternion newQuat = new Quaternion(quat);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalRotation(newQuat);
+			}
+		});
 	}
 	
 	@Override
@@ -137,7 +151,27 @@ public final class NodeEditable implements Editable {
 	}
 	@Override
 	public void setLocalScale(final Vector3f vec) {
-		this.spatial.setLocalScale(vec);
+		final Vector3f newVec = new Vector3f(vec);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalScale(newVec);
+			}
+		});
+	}
+	
+	@Override
+	public void setName(final String newName) {
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setName(newName);
+			}
+		});
+	}
+	@Override
+	public String getName() {
+		return(spatial.getName());
 	}
 	
 	@Override

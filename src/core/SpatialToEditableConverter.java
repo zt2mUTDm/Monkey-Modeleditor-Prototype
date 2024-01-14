@@ -70,7 +70,7 @@ public class SpatialToEditableConverter implements Converter<Spatial, Editable> 
 		if(node instanceof AudioNode) {
 			edit = new AudioNodeEditable(app, (AudioNode)node);
 		} else {
-			edit = new NodeEditable(app.getAssetManager());
+			edit = new NodeEditable(app);
 		}
 		
 		for(final Spatial spatial:node.getChildren()) {

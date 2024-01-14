@@ -207,15 +207,6 @@ public final class CylinderEditable implements Editable, HasColor, HasAxisSample
 		}
 	}
 	
-	@Override
-	public ColorRGBA getColor() {
-		return(color);
-	}
-	@Override
-	public void setColor(final ColorRGBA color) {
-		this.color = new ColorRGBA(color);
-		this.spatial.getMaterial().setColor("Color", this.color);
-	}
 	
 	
 	@Override
@@ -253,15 +244,6 @@ public final class CylinderEditable implements Editable, HasColor, HasAxisSample
 	}
 	
 	@Override
-	public void setName(final String newName) {
-		spatial.setName(newName);
-	}
-	@Override
-	public String getName() {
-		return(spatial.getName());
-	}
-	
-	@Override
 	public String toString() {
 		return(getName());
 	}
@@ -277,7 +259,13 @@ public final class CylinderEditable implements Editable, HasColor, HasAxisSample
 	}
 	@Override
 	public void setLocalTranslation(final Vector3f vec) {
-		spatial.setLocalTranslation(vec);
+		final Vector3f newVec = new Vector3f(vec);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalTranslation(newVec);
+			}
+		});
 	}
 	
 	@Override
@@ -286,7 +274,13 @@ public final class CylinderEditable implements Editable, HasColor, HasAxisSample
 	}
 	@Override
 	public void setLocalRotation(final Quaternion quat) {
-		this.spatial.setLocalRotation(quat);
+		final Quaternion newQuat = new Quaternion(quat);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalRotation(newQuat);
+			}
+		});
 	}
 	
 	@Override
@@ -295,13 +289,48 @@ public final class CylinderEditable implements Editable, HasColor, HasAxisSample
 	}
 	@Override
 	public void setLocalScale(final Vector3f vec) {
-		this.spatial.setLocalScale(vec);
-		
-		if(selectionControl != null) {
-			vec.maxLocal(new Vector3f(0, 0, 0));
-			
-			selectionControl.setPhysicsScale(vec);
-		}
+		final Vector3f newVec = new Vector3f(vec);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalScale(newVec);
+				
+				if(selectionControl != null) {
+					vec.maxLocal(new Vector3f(0, 0, 0));
+					
+					selectionControl.setPhysicsScale(newVec);
+				}
+			}
+		});
+	}
+	
+	@Override
+	public ColorRGBA getColor() {
+		return(color);
+	}
+	@Override
+	public void setColor(final ColorRGBA color) {
+		this.color = new ColorRGBA(color);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.getMaterial().setColor("Color", color);
+			}
+		});
+	}
+	
+	@Override
+	public void setName(final String newName) {
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setName(newName);
+			}
+		});
+	}
+	@Override
+	public String getName() {
+		return(spatial.getName());
 	}
 	
 	@Override

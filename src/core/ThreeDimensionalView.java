@@ -1,19 +1,14 @@
 package core;
 
-import java.awt.Canvas;
-import java.awt.Component;
-
 import com.jme3.app.SimpleApplication;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.system.JmeCanvasContext;
 
 import core.editables.Editable;
 import online.money_daisuki.api.base.Requires;
 
 public final class ThreeDimensionalView {
 	private final SimpleApplication app;
-	private final Component component;
 	
 	private SelectionModel<Editable> selectionModel;
 	private SelectionListener<Editable> selectionModelListener;
@@ -23,11 +18,6 @@ public final class ThreeDimensionalView {
 	public ThreeDimensionalView(final SimpleApplication app) {
 		this.app = Requires.notNull(app, "app == null");
 		
-		final JmeCanvasContext context = (JmeCanvasContext) app.getContext();
-		final Canvas threeDimView = context.getCanvas();
-		
-		component = threeDimView;
-		
 		content = new Node();
 		app.enqueue(new Runnable() {
 			@Override
@@ -35,10 +25,6 @@ public final class ThreeDimensionalView {
 				app.getRootNode().attachChild(content);
 			}
 		});
-	}
-	
-	public Component getComponent() {
-		return(component);
 	}
 	
 	public void setSelectionModel(final SelectionModel<Editable> newSelectionModel) {

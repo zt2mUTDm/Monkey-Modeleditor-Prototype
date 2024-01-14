@@ -232,7 +232,13 @@ public final class DomeEditable implements Editable, HasColor, HasPlanes, HasRad
 	}
 	@Override
 	public void setLocalTranslation(final Vector3f vec) {
-		spatial.setLocalTranslation(vec);
+		final Vector3f newVec = new Vector3f(vec);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalTranslation(newVec);
+			}
+		});
 	}
 	
 	@Override
@@ -241,7 +247,13 @@ public final class DomeEditable implements Editable, HasColor, HasPlanes, HasRad
 	}
 	@Override
 	public void setLocalRotation(final Quaternion quat) {
-		this.spatial.setLocalRotation(quat);
+		final Quaternion newQuat = new Quaternion(quat);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalRotation(newQuat);
+			}
+		});
 	}
 	
 	@Override
@@ -250,13 +262,19 @@ public final class DomeEditable implements Editable, HasColor, HasPlanes, HasRad
 	}
 	@Override
 	public void setLocalScale(final Vector3f vec) {
-		this.spatial.setLocalScale(vec);
-		
-		if(selectionControl != null) {
-			vec.maxLocal(new Vector3f(0, 0, 0));
-			
-			selectionControl.setPhysicsScale(vec);
-		}
+		final Vector3f newVec = new Vector3f(vec);
+		app.enqueue(new Runnable() {
+			@Override
+			public void run() {
+				spatial.setLocalScale(newVec);
+				
+				if(selectionControl != null) {
+					vec.maxLocal(new Vector3f(0, 0, 0));
+					
+					selectionControl.setPhysicsScale(newVec);
+				}
+			}
+		});
 	}
 	
 	@Override
