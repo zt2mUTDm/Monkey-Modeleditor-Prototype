@@ -42,7 +42,7 @@ dependencies {
     runtimeOnly 'org.jmonkeyengine:jme3-plugins:' + jmonkeyengineVersion
 
 
-    runtimeOnly 'org.jmonkeyengine:jme3-lwjgl:' + jmonkeyengineVersion
+    runtimeOnly 'org.jmonkeyengine:jme3-lwjgl3:' + jmonkeyengineVersion
 
     implementation 'com.github.stephengold:Minie:7.8.1'
 }
