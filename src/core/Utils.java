@@ -6,7 +6,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import javax.swing.JOptionPane;
 
-import com.jme3.app.SimpleApplication;
+import com.jme3.app.Application;
 
 import online.money_daisuki.api.base.models.SetableMutableSingleValueModel;
 import online.money_daisuki.api.base.models.SetableMutableSingleValueModelImpl;
@@ -14,7 +14,7 @@ import online.money_daisuki.api.base.models.SetableMutableSingleValueModelImpl;
 public final class Utils {
 	private static boolean excepted;
 	
-	public static void enqueueAndWait(final SimpleApplication app, final Runnable run) {
+	public static void enqueueAndWait(final Application app, final Runnable run) {
 		final Lock lock = new ReentrantLock();
 		final Condition con = lock.newCondition();
 		
@@ -23,11 +23,6 @@ public final class Utils {
 		try {
 			lock.lock();
 			
-			if(excepted) {
-				lock.unlock();
-				return;
-			}
-			
 			app.enqueue(new Runnable() {
 				@Override
 				public void run() {
@@ -35,7 +30,6 @@ public final class Utils {
 						lock.lock();
 						run.run();
 					} catch(final Throwable e) {
-						excepted = true;
 						t.sink(e);
 					} finally {
 						try {

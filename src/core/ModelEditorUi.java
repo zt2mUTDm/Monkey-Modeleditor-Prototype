@@ -4,13 +4,16 @@ import java.awt.BorderLayout;
 import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Font;
+import java.awt.Dimension;
+import java.awt.EventQueue;
+import java.awt.GraphicsEnvironment;
+import java.awt.Point;
+import java.awt.Toolkit;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -34,32 +37,21 @@ import java.util.Objects;
 
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
-import javax.swing.ButtonGroup;
 import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JColorChooser;
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JMenu;
-import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
-import javax.swing.JSlider;
-import javax.swing.JSpinner;
-import javax.swing.JSplitPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JToggleButton;
-import javax.swing.JToolBar;
 import javax.swing.JTree;
-import javax.swing.KeyStroke;
-import javax.swing.SpinnerNumberModel;
-import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -68,8 +60,6 @@ import javax.swing.event.TreeSelectionListener;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableCellEditor;
-import javax.swing.table.TableCellRenderer;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
@@ -77,32 +67,53 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWWindowCloseCallbackI;
+
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.plugins.FileLocator;
 import com.jme3.export.binary.BinaryExporter;
 import com.jme3.light.AmbientLight;
+import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
+import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
+import com.jme3.scene.shape.Box;
+import com.jme3.scene.shape.Cylinder;
+import com.jme3.scene.shape.Dome;
+import com.jme3.scene.shape.Sphere;
+import com.jme3.scene.shape.Torus;
+import com.jme3.system.lwjgl.LwjglDisplay;
 
 import cams.ChaseCameraEditorState;
 import cams.EditorCamera;
 import cams.FlyByCamEditorState;
-import core.editables.AudioNodeEditable;
-import core.editables.BoxEditable;
-import core.editables.CylinderEditable;
-import core.editables.DomeEditable;
+import core.editables.BoxMeshEditable;
+import core.editables.CylinderMeshEditable;
+import core.editables.DomeMeshEditable;
 import core.editables.Editable;
 import core.editables.EditionMode;
+import core.editables.GeometryEditable;
+import core.editables.MeshEditable;
 import core.editables.NodeEditable;
-import core.editables.SphereEditable;
-import core.editables.TorusEditable;
+import core.editables.SpatialEditable;
+import core.editables.SphereMeshEditable;
+import core.editables.TorusMeshEditable;
 import core.setting.ModelSetting;
 import core.threed.EditionState;
 import core.threed.EditionStateModel;
-import core.threed.TranslationState;
+import core.ui.ActualTypeTable;
+import core.ui.FloatTableEditor;
+import core.ui.IntegerTableEditor;
+import core.ui.QuaternionTableEditor;
+import core.ui.QuaternionTableRenderer;
+import core.ui.UiElementsStruct;
+import core.ui.Vector3fTableEditor;
+import core.ui.Vector3fTableRenderer;
 import online.money_daisuki.api.base.DataSink;
 import online.money_daisuki.api.base.Requires;
 import online.money_daisuki.api.base.ValueChangedHandler;
@@ -126,8 +137,8 @@ public final class ModelEditorUi {
 	private final MutableDequeModel<Mapping<Runnable, Runnable>> undos = new MutableDequeModelImpl<>();
 	private final MutableDequeModel<Mapping<Runnable, Runnable>> redos = new MutableDequeModelImpl<>();
 	
-	private final DefaultTreeModel fileSelectionTreeModel;
-	private final JTree fileSelectionTree;
+	private DefaultTreeModel fileSelectionTreeModel;
+	private JTree fileSelectionTree;
 	private final JTree componentTree;
 	
 	private final ThreeDimensionalView tdview;
@@ -138,51 +149,724 @@ public final class ModelEditorUi {
 	
 	private final ModelSetting setting;
 	private final SimpleApplication app;
-
+	
 	private JTable valuesTable;
+	
+	private UiElementsStruct ui;
 	
 	public ModelEditorUi(final SimpleApplication app, final ModelSetting setting) {
 		this.app = Requires.notNull(app, "app == null");
 		this.setting = Requires.notNull(setting, "setting == null");
 		
-		frame = new JFrame("Modeleditor");
+		ui = new UiElementsStruct();
+		
+		frame = ui.getFrame();
 		frame.addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(final WindowEvent e) {
 				requestExit();
 			}
 		});
-		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		
-		final JMenuBar headMenuBar = new JMenuBar();
-		frame.setJMenuBar(headMenuBar);
 		
-		final JMenu headMenuFileMenu = new JMenu("File");
-		headMenuBar.add(headMenuFileMenu);
+		ui.getThreeDTransformNoneButton().addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(final ItemEvent e) {
+				if(ui.getThreeDTransformNoneButton().isSelected()) {
+					final AppStateManager stateMng = app.getStateManager();
+					final EditionState state = stateMng.getState(EditionState.class);
+					if(state != null) {
+						stateMng.detach(state);
+					}
+				}
+				selectedMode = null;
+			}
+		});
 		
-		final JMenuItem headMenuOpenItem = new JMenuItem(new AbstractAction("Open") {
+		
+		final MutableSingleValueModel<GridMode> gridMode = new MutableSingleValueModelImpl<>(GridMode.NONE);
+		gridMode.addValueChangedHandler(new ValueChangedHandler<GridMode>() {
+			@Override
+			public void valueChanged(final GridMode oldValue, final GridMode newValue) {
+				setting.setGridMode(newValue);
+			}
+		});
+		
+		final GridMode mode = setting.getGridMode();
+		
+		ui.getNoGridButton().addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(final ItemEvent e) {
+				if(ui.getNoGridButton().isSelected()) {
+					gridMode.sink(GridMode.NONE);
+				}
+			}
+		});
+		ui.getNoGridButton().setSelected(mode == GridMode.NONE);
+		
+		ui.getMoveByGridButton().addItemListener(new ItemListener() {
+			@Override
+			public void itemStateChanged(final ItemEvent e) {
+				if(ui.getMoveByGridButton().isSelected()) {
+					gridMode.sink(GridMode.MOVE_BY);
+				}
+			}
+		});
+		ui.getMoveByGridButton().setSelected(mode == GridMode.MOVE_BY);
+		
+		
+		final int preGridSize = setting.getGridSize();
+		
+		ui.getGridSizeSlider().setValue(preGridSize);
+		ui.getGridSizeSlider().addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(final ChangeEvent e) {
+				setting.setGridSize(ui.getGridSizeSlider().getValue());
+			}
+		});
+		
+		ui.getGridSizeField().setText(String.valueOf(preGridSize / 100.0f));
+		
+		
+		//
+		
+		final SelectionModel<Editable> selectionModel = new SelectionModelImpl<>();
+		
+		tdview = new ThreeDimensionalView(app);
+		tdview.setSelectionModel(selectionModel);
+		
+		
+		//
+		
+		setUpFilesDialog();
+		
+		//
+		
+		final TreeModel componentTreeModel = new DefaultTreeModel(null) {
+			@Override
+			public void valueForPathChanged(final TreePath path, final Object newValue) {
+				System.out.println(newValue);
+				super.valueForPathChanged(path, newValue);
+			}
+		};
+		componentTree = new JTree(componentTreeModel);
+		componentTree.setCellRenderer(new DefaultTreeCellRenderer() {
+			@Override
+			public Component getTreeCellRendererComponent(final JTree tree, final Object value, final boolean sel, final boolean expanded,
+					final boolean leaf, final int row, final boolean hasFocus) {
+				final DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+				final Editable editable = (Editable) node.getUserObject();
+				return(super.getTreeCellRendererComponent(fileSelectionTree, value, sel, expanded, editable != null ? !(editable instanceof core.editables.NodeEditable) : leaf, row, hasFocus));
+			}
+		});
+		componentTree.addTreeSelectionListener(new TreeSelectionListener() {
+			@Override
+			public void valueChanged(final TreeSelectionEvent e) {
+				final boolean b = (!componentTree.isSelectionEmpty());
+				//moveCameraToSelectedButton.setEnabled(b);
+			}
+		});
+		ui.getSceneGraphDialog().add(new JScrollPane(componentTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
+		
+		//final Component threeDimView = tdview.getComponent();
+		
+		//threeDimView.setMinimumSize(new Dimension(640, 480));
+		//threeDimView.setPreferredSize(new Dimension(640, 480));
+		
+		final Canvas canvas = new Canvas();
+		canvas.setBackground(Color.BLUE);
+		
+		
+		final SetableMutableSingleValueModel<Editable> selectedObjectsTableObject = new SetableMutableSingleValueModelImpl<>();
+		selectedObjectsEditorModes = new ArrayList<>();
+		
+		
+		valuesTable = new ActualTypeTable();
+		valuesTable.setModel(new DefaultTableModel() {
+			private final String[] COLUMN_NAMES = new String[] {
+					"Name",
+					"Value"
+			};
+			
+			@Override
+			public void setValueAt(final Object aValue, final int row, final int column) {
+				if(column == 1) {
+					final Mapping<Runnable, Runnable> command = selectedObjectsEditorModes.get(row).createChangeCommand(selectedObjectsTableObject.source(), aValue);
+					execute(command);
+				}
+			}
+			@Override
+			public Object getValueAt(final int row, final int column) {
+				final EditionMode mode = selectedObjectsEditorModes.get(row);
+				if(column == 0) {
+					return(mode.getName());
+				} else {
+					return(mode.get());
+				}
+			}
+			@Override
+			public int getRowCount() {
+				return(selectedObjectsTableObject.isSet() ? selectedObjectsEditorModes.size() : 0);
+			}
+			@Override
+			public int getColumnCount() {
+				return(2);
+			}
+			@Override
+			public boolean isCellEditable(final int row, final int column) {
+				return(column == 1);
+			}
+			@Override
+			public Class<?> getColumnClass(final int columnIndex) {
+				return(String.class);
+			}
+			@Override
+			public String getColumnName(final int column) {
+				return(COLUMN_NAMES[column]);
+			}
+		});
+		valuesTable.setDefaultEditor(Float.class, new FloatTableEditor());
+		valuesTable.setDefaultEditor(Integer.class, new IntegerTableEditor());
+		valuesTable.setDefaultEditor(Boolean.class, new DefaultCellEditor(new JCheckBox()) {
+			@Override
+			public Component getTableCellEditorComponent(final JTable table, final Object value, final boolean isSelected, final int row,
+					final int column) {
+				final JCheckBox comp = (JCheckBox) super.getTableCellEditorComponent(table, value, isSelected, row, column);
+				comp.setSelected(Boolean.parseBoolean(Objects.toString(value)));
+				return(comp);
+			}
+		});
+		valuesTable.setDefaultRenderer(Boolean.class, new DefaultTableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected,
+					final boolean hasFocus, final int row, final int column) {
+				final JCheckBox box = new JCheckBox();
+				box.setSelected(Boolean.parseBoolean(Objects.toString(value)));
+				return(box);
+			}
+		});
+		
+		valuesTable.setDefaultRenderer(Vector3f.class, new Vector3fTableRenderer());
+		valuesTable.setDefaultEditor(Vector3f.class, new Vector3fTableEditor());
+		valuesTable.setDefaultRenderer(Quaternion.class, new QuaternionTableRenderer());
+		valuesTable.setDefaultEditor(Quaternion.class, new QuaternionTableEditor());
+		
+		openedFile.addValueChangedHandler(new ValueChangedHandler<File>() {
+			@Override
+			public void valueChanged(final File oldValue, final File newValue) {
+				valuesTable.setEnabled(newValue != null);
+			}
+		});
+		valuesTable.getTableHeader().setReorderingAllowed(false);
+		valuesTable.setEnabled(false);
+		ui.getPropertiesDialog().add(new JScrollPane(valuesTable, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
+		
+		//frame.add(vSplit);
+		
+		
+		selectionModel.addSelectionChangedListener(new SelectionListener<Editable>() {
+			@Override
+			public void selectionAdded(final Object source, final Editable value) {
+				value.setSelected(true);
+			}
+			@Override
+			public void selectionRemoved(final Object source, final Editable value) {
+				value.setSelected(false);
+			}
+		});
+		selectionModel.addSelectionChangedListener(new SelectionListener<Editable>() {
+			private final Deque<Editable> selections = new LinkedList<>();
+			private Editable mainSelections;
+			private final List<AbstractButton> buttons = new LinkedList<>();
+			
+			@Override
+			public void selectionAdded(final Object source, final Editable value) {
+				if(mainSelections != null) {
+					selections.addFirst(mainSelections);
+				}
+				updateModes(value);
+				mainSelections = value;
+			}
+			@Override
+			public void selectionRemoved(final Object source, final Editable value) {
+				if(value.equals(mainSelections)) {
+					if(!selections.isEmpty()) {
+						mainSelections = selections.removeFirst();
+						updateModes(mainSelections);
+					} else {
+						mainSelections = null;
+						
+						selectedObjectsEditorModes.clear();
+						valuesTable.revalidate();
+						valuesTable.repaint();
+						
+						removeButtons();
+					}
+				} else {
+					selections.remove(value);
+				}
+			}
+			private void updateModes(final Editable value) {
+				final Collection<EditionMode> modes = value.getEditionModes();
+				selectedObjectsEditorModes.clear();
+				removeButtons();
+				
+				JToggleButton buttonToSelect = null;
+				final JToggleButton noEditModeButton = ui.getThreeDTransformNoneButton();
+				int i = noEditModeButton.getParent().getComponentZOrder(noEditModeButton) + 1;
+				for(final EditionMode mode:modes) {
+					if(mode.isEditableByTable()) {
+						selectedObjectsEditorModes.add(mode);
+					}
+					
+					if(mode.isEditableByThreeDView()) {
+						final JToggleButton button = new JToggleButton(mode.getName());
+						button.addItemListener(new ItemListener() {
+							@Override
+							public void itemStateChanged(final ItemEvent e) {
+								if(button.isSelected()) {
+									app.enqueue(new Runnable() {
+										@Override
+										public void run() {
+											final AppStateManager stateMng = app.getStateManager();
+											final EditionState state = stateMng.getState(EditionState.class);
+											if(state != null) {
+												stateMng.detach(state);
+											}
+											
+											stateMng.attach(mode.createEditionState(new EditionStateModel() {
+												@Override
+												public float getGridSize() {
+													return(ui.getGridSizeSlider().getValue() / 100.0f);
+												}
+												
+												@Override
+												public GridMode getGridMode() {
+													return(gridMode.source());
+												}
+												
+												@Override
+												public void execute(final Mapping<Runnable, Runnable> command) {
+													EventQueue.invokeLater(new Runnable() {
+														@Override
+														public void run() {
+															ModelEditorUi.this.execute(command);
+														}
+													});
+												}
+												
+												@Override
+												public void executeTemporary(final Mapping<Runnable, Runnable> command) {
+													command.getA().run();
+													valuesTable.revalidate();
+													valuesTable.repaint();
+												}
+											}));
+											
+											/*stateMng.attach(new TranslationState(new EditionStateModel() {
+												@Override
+												public void set(final String data) {
+													final Mapping<Runnable, Runnable> command = mode.createChangeCommand(value, data);
+													execute(command);
+													
+													valuesTable.revalidate();
+													valuesTable.repaint();
+												}
+												@Override
+												public void setTemporary(final String data) {
+													mode.createChangeCommand(value, data).getA().run();
+													valuesTable.revalidate();
+													valuesTable.repaint();
+												}
+												@Override
+												public String get() {
+													throw new UnsupportedOperationException();
+												}
+												@Override
+												public Vector3f getCursorLocation() {
+													return(EditionModeOld.strToVec(String.valueOf(EditionModeOld.WORLD_TRANSLATION.get(value))));
+												}
+												@Override
+												public float getGridSize() {
+													return(gridSizeSlider.getValue() / 100.0f);
+												}
+												@Override
+												public GridMode getGridMode() {
+													return(gridMode.source());
+												}
+											}));*/
+										}
+									});
+									selectedMode = mode;
+								}
+							}
+						});
+						
+						if(selectedMode == mode) {
+							buttonToSelect = button;
+						}
+						
+						ui.getThreeDTransformButtonGroup().add(button);
+						ui.getThreeDTransformToolbar().add(button, i++);
+						buttons.add(button);
+					}
+				}
+				
+				if(buttonToSelect != null) {
+					buttonToSelect.setSelected(true);
+				} else {
+					noEditModeButton.setSelected(true);
+				}
+				
+				selectedObjectsTableObject.sink(value);
+				valuesTable.revalidate();
+				valuesTable.repaint();
+			}
+			private void removeButtons() {
+				for(final AbstractButton comp:buttons) {
+					ui.getThreeDTransformToolbar().remove(comp);
+					ui.getThreeDTransformButtonGroup().remove(comp);
+				}
+				buttons.clear();
+				ui.getThreeDTransformToolbar().revalidate();
+				ui.getThreeDTransformToolbar().repaint();
+				ui.getThreeDTransformWindow().pack();
+			}
+		});
+		
+		
+		//
+		
+		final MutableSingleValueModel<Boolean> updateTreeSelection = new MutableSingleValueModelImpl<>(Boolean.TRUE);
+		
+		final SelectionListener<Editable> updateComponentTreeSelectionListener = new SelectionListener<Editable>() {
+			@Override
+			public void selectionAdded(final Object source, final Editable value) {
+				value.setSelected(true);
+				
+				if(updateTreeSelection.source()) {
+					final DefaultMutableTreeNode node = searchTreeNodeForUserObject((DefaultMutableTreeNode) componentTree.getModel().getRoot(), value);
+					
+					if(node != null) {
+						final TreeNode[] nodes = ((DefaultTreeModel)componentTree.getModel()).getPathToRoot(node);
+						final TreePath[] curPaths = componentTree.getSelectionPaths();
+						if(curPaths == null) {
+							componentTree.setSelectionPath(new TreePath(nodes));
+						} else {
+							final int len = curPaths.length;
+							
+							final TreePath[] newPaths = new TreePath[len + 1];
+							System.arraycopy(curPaths, 0, newPaths, 0, len);
+							newPaths[len] = new TreePath(nodes);
+							componentTree.setSelectionPaths(newPaths);
+						}
+					}
+				}
+			}
+			@Override
+			public void selectionRemoved(final Object source, final Editable value) {
+				value.setSelected(false);
+				
+				if(updateTreeSelection.source()) {
+					final DefaultMutableTreeNode node = searchTreeNodeForUserObject((DefaultMutableTreeNode) componentTree.getModel().getRoot(), value);
+					
+					if(node != null) {
+						final TreeNode[] nodes = ((DefaultTreeModel)componentTree.getModel()).getPathToRoot(node);
+						final TreePath[] curPaths = componentTree.getSelectionPaths();
+						if(curPaths == null) {
+							return;
+						} else {
+							final Collection<TreePath> curPathCol = new ArrayList<>(Arrays.asList(curPaths));
+							curPathCol.remove(new TreePath(nodes));
+							componentTree.setSelectionPaths(curPathCol.toArray(new TreePath[curPathCol.size()]));
+						}
+					}
+				}
+			}
+			private DefaultMutableTreeNode searchTreeNodeForUserObject(final DefaultMutableTreeNode node, final Object userObject) {
+				if(Objects.equals(node.getUserObject(), userObject)) {
+					return(node);
+				}
+				
+				for(int i = 0, size = node.getChildCount(); i < size; i++) {
+					final DefaultMutableTreeNode result = searchTreeNodeForUserObject((DefaultMutableTreeNode) node.getChildAt(i), userObject);
+					if(result != null) {
+						return(result);
+					}
+				}
+				return(null);
+			}
+		};
+		
+		componentTree.addTreeSelectionListener(new TreeSelectionListener() {
+			@Override
+			public void valueChanged(final TreeSelectionEvent e) {
+				updateTreeSelection.sink(Boolean.FALSE);
+				
+				selectionModel.clear();
+				
+				final TreePath[] paths = componentTree.getSelectionPaths();
+				if(paths != null) {
+					for(final TreePath path:paths) {
+						final DefaultMutableTreeNode node = (DefaultMutableTreeNode)path.getLastPathComponent();
+						final Editable obj = (Editable) node.getUserObject();
+						selectionModel.add(obj);
+					}
+				} else {
+					selectionModel.clear();
+				}
+				
+				updateTreeSelection.sink(Boolean.TRUE);
+			}
+		});
+		selectionModel.addSelectionChangedListener(updateComponentTreeSelectionListener);
+		
+		componentTree.setEditable(true);
+		
+		
+		//
+		
+		componentTree.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mousePressed(final MouseEvent e) {
+				if(SwingUtilities.isRightMouseButton(e)) {
+					final TreePath path = componentTree.getPathForLocation(e.getX(), e.getY());
+					if(path == null) {
+						return;
+					}
+					
+					componentTree.setSelectionPath(path);
+					
+					final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+					final Editable obj = (Editable) selectedNode.getUserObject();
+					
+					
+					final JPopupMenu menu = new JPopupMenu();
+					
+					final JMenu addMenu = new JMenu("Add");
+					addMenu.setEnabled(obj instanceof NodeEditable);
+					menu.add(addMenu);
+					
+					addMenu.add(new JMenuItem(new AbstractAction("Node") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final NodeEditable newNode = new NodeEditable(app, new Node(""));
+							newNode.setName("New node");
+							createEditable(newNode, selectedNode);
+						}
+					}));
+					/*addMenu.add(new JMenuItem(new AbstractAction("AudioNode") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							/*final AudioNodeEditable newNode = new AudioNodeEditable(app, "New audio node");
+							createEditable(newNode, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);*/
+						/*}
+					}));*/
+					
+					addMenu.addSeparator();
+					
+					addMenu.add(new JMenuItem(new AbstractAction("Import model") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final JFileChooser chooser = new JFileChooser(setting.getLastLoadedModelPath());
+							if(chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
+								
+								final Path openPath = openedFolder.source().toPath();
+								final File selectedFile = chooser.getSelectedFile();
+								final Path selectedPath = selectedFile.toPath();
+								setting.setLastLoadedModelPath(selectedFile.getAbsolutePath());
+								
+								final File relativePath = new File(openPath.relativize(selectedPath).toString());
+								if(relativePath.getPath().replace('\\', '/').matches("(?:^|/)[.][.](?:$|/)")) {
+									// TODO import
+									System.out.println("Ask for import");
+								}
+								
+								
+								final String path = selectedFile.getPath();
+								final String parentPath = selectedFile.getParentFile().getPath();
+								
+								app.getAssetManager().registerLocator(parentPath, FileLocator.class);
+								
+								final Spatial spatial = app.getAssetManager().loadModel(selectedFile.getName());
+								createEditable(SpatialEditable.valueOf(app, spatial), selectedNode);
+								
+								app.getAssetManager().unregisterLocator(parentPath, FileLocator.class);
+								
+								openFileChanged.sink(Boolean.TRUE);
+							}
+						}
+					}));
+					menu.show(componentTree, e.getX(), e.getY());
+					
+					addMenu.addSeparator();
+					
+					addMenu.add(new JMenuItem(new AbstractAction("Box") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Box box = new Box(0.5f, 0.5f, 0.5f);
+							final BoxMeshEditable boxEditable = new BoxMeshEditable(box);
+							
+							final Geometry geo = new Geometry("New box", boxEditable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, boxEditable);
+							
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Cylinder") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Cylinder cylinder = new Cylinder(8, 32, 0.5f, 1, true, false);
+							final MeshEditable editable = new CylinderMeshEditable(cylinder);
+							
+							final Geometry geo = new Geometry("New cylinder", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Sphere") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Sphere sphere = new Sphere(16, 32, 1);
+							final MeshEditable editable = new SphereMeshEditable(sphere);
+							
+							final Geometry geo = new Geometry("New sphere", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Dome") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Dome dome = new Dome(8, 16, 1);
+							final MeshEditable editable = new DomeMeshEditable(dome);
+							
+							final Geometry geo = new Geometry("New dome", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Cone") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Dome dome = new Dome(2, 16, 1);
+							final MeshEditable editable = new DomeMeshEditable(dome);
+							
+							final Geometry geo = new Geometry("New cone", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Tetrahedron") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Dome dome = new Dome(2, 3, 1);
+							final MeshEditable editable = new DomeMeshEditable(dome);
+							
+							final Geometry geo = new Geometry("New tetrahedron", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Pyramid") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Dome dome = new Dome(2, 4, 1);
+							final MeshEditable editable = new DomeMeshEditable(dome);
+							
+							final Geometry geo = new Geometry("New pyramid", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+					addMenu.add(new JMenuItem(new AbstractAction("Torus") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final Torus torus = new Torus(16, 32, 0.33f, 1f);
+							final MeshEditable editable = new TorusMeshEditable(torus);
+							
+							final Geometry geo = new Geometry("New torus", editable.getMesh());
+							
+							final Material mat = new Material(app.getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+							mat.setColor("Color", ColorRGBA.randomColor());
+							geo.setMaterial(mat);
+							
+							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							createEditable(geoEdit, selectedNode);
+							openFileChanged.sink(Boolean.TRUE);
+						}
+					}));
+				}
+			}
+		});
+		
+		
+		setupTopMenuWindow();
+		setupCameraWindows();
+	}
+	
+	private void setupTopMenuWindow() {
+		ui.getTopMenuFileOpen().addActionListener(new ActionListener() { 
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				showLoadFolderUi();
 			}
 		});
-		headMenuOpenItem.setMnemonic(KeyEvent.VK_O);
-		headMenuOpenItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK));
-		headMenuFileMenu.add(headMenuOpenItem);
-		
-		final JMenuItem headMenuSaveItem = new JMenuItem(new AbstractAction("Save") {
+		ui.getTopMenuFileSave().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				saveFile();
 			}
 		});
-		headMenuSaveItem.setEnabled(false);
-		headMenuSaveItem.setMnemonic(KeyEvent.VK_S);
-		headMenuSaveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, ActionEvent.CTRL_MASK));
+		
 		openFileChanged.addValueChangedHandler(new ValueChangedHandler<Boolean>() {
 			@Override
-			public void valueChanged(final Boolean old, final Boolean nevv) {
-				headMenuSaveItem.setEnabled(nevv);
+			public void valueChanged(final Boolean oldValue, final Boolean newValue) {
+				ui.getTopMenuFileSave().setEnabled(newValue);
 			}
 		});
 		openFileChanged.addValueChangedHandler(new ValueChangedHandler<Boolean>() {
@@ -203,40 +887,29 @@ public final class ModelEditorUi {
 				}
 			}
 		});
-		headMenuFileMenu.add(headMenuSaveItem);
 		
-		final JMenuItem headMenuCloseItem = new JMenuItem(new AbstractAction("Close") {
+		ui.getTopMenuFileClose().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				requestCloseFolder();
 			}
 		});
-		headMenuCloseItem.setEnabled(false);
 		openedFolder.addValueChangedHandler(new ValueChangedHandler<File>() {
 			@Override
-			public void valueChanged(final File old, final File nevv) {
-				headMenuCloseItem.setEnabled(nevv != null);
+			public void valueChanged(final File oldVersion, final File newVersion) {
+				ui.getTopMenuFileClose().setEnabled(newVersion != null);
 			}
 		});
-		headMenuFileMenu.add(headMenuCloseItem);
 		
-		headMenuFileMenu.addSeparator();
-		
-		final JMenuItem headMenuExitItem = new JMenuItem(new AbstractAction("Exit") {
+		ui.getTopMenuFileExit().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				requestExit();
 			}
 		});
-		headMenuExitItem.setMnemonic(KeyEvent.VK_Q);
-		headMenuExitItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Q, ActionEvent.CTRL_MASK));
-		headMenuFileMenu.add(headMenuExitItem);
 		
-		final JMenu headMenuEditMenu = new JMenu("Edit");
-		headMenuBar.add(headMenuEditMenu);
 		
-		final JMenuItem undoItem = new JMenuItem("Undo");
-		undoItem.addActionListener(new ActionListener() {
+		ui.getTopMenuEditUndo().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				undo();
@@ -245,16 +918,10 @@ public final class ModelEditorUi {
 		undos.addChangeListener(new DataSink<MutableDequeModel<Mapping<Runnable, Runnable>>>() {
 			@Override
 			public void sink(final MutableDequeModel<Mapping<Runnable, Runnable>> value) {
-				undoItem.setEnabled(!undos.isEmpty());
+				ui.getTopMenuEditUndo().setEnabled(!undos.isEmpty());
 			}
 		});
-		undoItem.setEnabled(!undos.isEmpty());
-		undoItem.setMnemonic(KeyEvent.VK_Z);
-		undoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, ActionEvent.CTRL_MASK));
-		headMenuEditMenu.add(undoItem);
-		
-		final JMenuItem redoItem = new JMenuItem("Redo");
-		redoItem.addActionListener(new ActionListener() {
+		ui.getTopMenuEditRedo().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				redo();
@@ -263,25 +930,54 @@ public final class ModelEditorUi {
 		redos.addChangeListener(new DataSink<MutableDequeModel<Mapping<Runnable, Runnable>>>() {
 			@Override
 			public void sink(final MutableDequeModel<Mapping<Runnable, Runnable>> value) {
-				redoItem.setEnabled(!redos.isEmpty());
+				ui.getTopMenuEditRedo().setEnabled(!redos.isEmpty());
 			}
 		});
-		redoItem.setEnabled(!redos.isEmpty());
-		redoItem.setMnemonic(KeyEvent.VK_Y);
-		redoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, ActionEvent.CTRL_MASK));
-		headMenuEditMenu.add(redoItem);
 		
 		
-		final JToolBar toolBar = new JToolBar();
-		toolBar.setFloatable(false);
-		toolBar.add(new AbstractAction("Open") {
+		ui.getRearrangeWindowsMenuItem().addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(final ActionEvent e) {
+				rearrangeWindows();
+			}
+		});
+		
+		final long windowHandle = ((LwjglDisplay)app.getContext()).getWindowHandle();
+		
+		ui.getThreeDViewVisibilityCheckBox().addChangeListener(new ChangeListener() {
+			private boolean oldSelection = true;
+			
+			@Override
+			public void stateChanged(final ChangeEvent e) {
+				final boolean selected = ui.getThreeDViewVisibilityCheckBox().isSelected();
+				if(oldSelection != selected) {
+					if(selected) {
+						GLFW.glfwShowWindow(windowHandle);
+					} else {
+						GLFW.glfwHideWindow(windowHandle);
+					}
+					oldSelection = selected;
+				}
+			}
+		});
+		
+		GLFW.glfwSetWindowCloseCallback(windowHandle, new GLFWWindowCloseCallbackI() {
+			@Override
+			public void invoke(final long arg0) {
+				GLFW.glfwSetWindowShouldClose(windowHandle, false);
+				ui.getThreeDViewVisibilityCheckBox().setSelected(false);
+			}
+		});
+		
+		
+		
+		ui.getToolbarOpen().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				showLoadFolderUi();
 			}
 		});
-		
-		final JButton saveButton = new JButton(new AbstractAction("Save") {
+		ui.getToolbarSave().addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				saveFile();
@@ -289,14 +985,11 @@ public final class ModelEditorUi {
 		});
 		openFileChanged.addValueChangedHandler(new ValueChangedHandler<Boolean>() {
 			@Override
-			public void valueChanged(final Boolean old, final Boolean nevv) {
-				saveButton.setEnabled(nevv.booleanValue());
+			public void valueChanged(final Boolean oldValue, final Boolean newValue) {
+				ui.getToolbarSave().setEnabled(newValue.booleanValue());
 			}
 		});
-		saveButton.setEnabled(false);
-		toolBar.add(saveButton);
-		
-		final JButton closeButton = new JButton(new AbstractAction("Close") {
+		ui.getToolbarClose().addActionListener(new AbstractAction() {
 			@Override
 			public void actionPerformed(final ActionEvent e) {
 				requestCloseFolder();
@@ -305,109 +998,16 @@ public final class ModelEditorUi {
 		openedFolder.addValueChangedHandler(new ValueChangedHandler<File>() {
 			@Override
 			public void valueChanged(final File old, final File nevv) {
-				closeButton.setEnabled(nevv != null);
-			}
-		});
-		closeButton.setEnabled(false);
-		toolBar.add(closeButton);
-		
-		toolBar.addSeparator();
-		
-		
-		final ButtonGroup cameraButtonGroup = new ButtonGroup();
-		
-		final JToggleButton flyByCamButton = new JToggleButton("FlyByCam");
-		flyByCamButton.addItemListener(new ItemListener() {
-			private final EditorCamera flyCamState = new FlyByCamEditorState();
-			
-			@Override
-			public void itemStateChanged(final ItemEvent e) {
-				Utils.enqueueAndWait(app, new Runnable() {
-					@Override
-					public void run() {
-						final EditorCamera existState = app.getStateManager().getState(EditorCamera.class);
-						if(existState != null) {
-							app.getStateManager().detach(existState);
-						}
-						app.getStateManager().attach(flyCamState);
-					}
-				});
-			}
-		});
-		cameraButtonGroup.add(flyByCamButton);
-		toolBar.add(flyByCamButton);
-		
-		flyByCamButton.setSelected(true);
-		
-		final JToggleButton chaseCamButton = new JToggleButton(new AbstractAction("Chase") {
-			private final EditorCamera state = new ChaseCameraEditorState();
-			
-			@Override
-			public void actionPerformed(final ActionEvent e) {
-				Utils.enqueueAndWait(app, new Runnable() {
-					@Override
-					public void run() {
-						final EditorCamera existState = app.getStateManager().getState(EditorCamera.class);
-						if(existState != null) {
-							app.getStateManager().detach(existState);
-						}
-						app.getStateManager().attach(state);
-					}
-				});
-			}
-		});
-		cameraButtonGroup.add(chaseCamButton);
-		toolBar.add(chaseCamButton);
-		
-		toolBar.addSeparator();
-		
-		toolBar.add(new AbstractAction("Cam to origin") {
-			@Override
-			public void actionPerformed(final ActionEvent e) {
-				final EditorCamera existState = app.getStateManager().getState(EditorCamera.class);
-				if(existState != null) {
-					existState.reset();
-				}
+				ui.getToolbarClose().setEnabled(nevv != null);
 			}
 		});
 		
-		final JButton moveCameraToSelectedButton = new JButton("Move to selected");
-		moveCameraToSelectedButton.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(final ActionEvent e) {
-				final TreePath path = componentTree.getSelectionPath();
-				if(path == null) {
-					return;
-				}
-				
-				final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
-				final Editable selectedEditable = (Editable) selectedNode.getUserObject();
-				
-				final Vector3f vec = selectedEditable.getWorldTranslation();
-				
-				app.enqueue(new Runnable() {
-					@Override
-					public void run() {
-						final EditorCamera cam = app.getStateManager().getState(EditorCamera.class);
-						if(cam != null) {
-							cam.move(vec);
-						}
-					}
-				});
-			}
-		});
-		moveCameraToSelectedButton.setEnabled(false);
-		toolBar.add(moveCameraToSelectedButton);
-		
-		toolBar.addSeparator();
-		
-		final JToggleButton ambientLightButton = new JToggleButton("Ambient light");
-		ambientLightButton.addItemListener(new ItemListener() {
+		ui.getToolbarAmbientLightButton().addItemListener(new ItemListener() {
 			private final AmbientLight light = new AmbientLight();
 			
 			@Override
 			public void itemStateChanged(final ItemEvent e) {
-				if(ambientLightButton.isSelected()) {
+				if(ui.getToolbarAmbientLightButton().isSelected()) {
 					app.enqueue(new Runnable() {
 						@Override
 						public void run() {
@@ -424,123 +1024,103 @@ public final class ModelEditorUi {
 				}
 			}
 		});
-		toolBar.add(ambientLightButton);
-		
-		toolBar.addSeparator();
-		
-		final ButtonGroup editModeButtonGroup = new ButtonGroup();
-		
-		final JToggleButton noEditModeButton = new JToggleButton("Cursor");
-		noEditModeButton.addItemListener(new ItemListener() {
+	}
+	private void setupCameraWindows() {
+		final Runnable setFlyByCamRunnable = new Runnable() {
+			private final EditorCamera flyCamState = new FlyByCamEditorState();
 			@Override
-			public void itemStateChanged(final ItemEvent e) {
-				if(noEditModeButton.isSelected()) {
-					final AppStateManager stateMng = app.getStateManager();
-					final EditionState state = stateMng.getState(EditionState.class);
-					if(state != null) {
-						stateMng.detach(state);
+			public void run() {
+				Utils.enqueueAndWait(app, new Runnable() {
+					@Override
+					public void run() {
+						final EditorCamera existState = app.getStateManager().getState(EditorCamera.class);
+						if(existState != null) {
+							app.getStateManager().detach(existState);
+						}
+						app.getStateManager().attach(flyCamState);
 					}
-				}
-				selectedMode = null;
+				});
 			}
-		});
-		noEditModeButton.setSelected(true);
-		toolBar.add(noEditModeButton);
-		editModeButtonGroup.add(noEditModeButton);
-		
-		toolBar.addSeparator();
-		
-		final MutableSingleValueModel<GridMode> gridMode = new MutableSingleValueModelImpl<>(GridMode.NONE);
-		
-		final ButtonGroup gridButtonGroup = new ButtonGroup();
-		
-		gridMode.addValueChangedHandler(new ValueChangedHandler<GridMode>() {
-			@Override
-			public void valueChanged(final GridMode oldValue, final GridMode newValue) {
-				setting.setGridMode(newValue);
-			}
-		});
-		
-		final GridMode mode = setting.getGridMode();
-		
-		final JToggleButton noGridButton = new JToggleButton("No grid");
-		noGridButton.addItemListener(new ItemListener() {
+		};
+		ui.getCameraFlyByCamButton().addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(final ItemEvent e) {
-				if(noGridButton.isSelected()) {
-					gridMode.sink(GridMode.NONE);
+				setFlyByCamRunnable.run();
+			}
+		});
+		setFlyByCamRunnable.run();
+		
+		ui.getCameraChaseCamButton().addActionListener(new ActionListener() {
+			private final EditorCamera state = new ChaseCameraEditorState();
+			
+			@Override
+			public void actionPerformed(final ActionEvent e) {
+				Utils.enqueueAndWait(app, new Runnable() {
+					@Override
+					public void run() {
+						final EditorCamera existState = app.getStateManager().getState(EditorCamera.class);
+						if(existState != null) {
+							app.getStateManager().detach(existState);
+						}
+						app.getStateManager().attach(state);
+					}
+				});
+			}
+		});
+		
+		ui.getCameraToOriginButton().addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(final ActionEvent e) {
+				final EditorCamera existState = app.getStateManager().getState(EditorCamera.class);
+				if(existState != null) {
+					existState.reset();
 				}
 			}
 		});
-		noGridButton.setSelected(mode == GridMode.NONE);
-		toolBar.add(noGridButton);
-		gridButtonGroup.add(noGridButton);
-		
-		final JToggleButton moveByGridButton = new JToggleButton("Move by grid");
-		moveByGridButton.addItemListener(new ItemListener() {
+		ui.getCameraToSelectedButton().setEnabled(false);
+		ui.getCameraToSelectedButton().addActionListener(new ActionListener() {
 			@Override
-			public void itemStateChanged(final ItemEvent e) {
-				if(moveByGridButton.isSelected()) {
-					gridMode.sink(GridMode.MOVE_BY);
+			public void actionPerformed(final ActionEvent e) {
+				final TreePath path = componentTree.getSelectionPath();
+				if(path == null) {
+					return;
 				}
+				
+				final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+				final SpatialEditable selectedEditable = (SpatialEditable) selectedNode.getUserObject();
+				
+				
+				final Vector3f vec = selectedEditable.getWorldTranslation();
+				
+				app.enqueue(new Runnable() {
+					@Override
+					public void run() {
+						final EditorCamera cam = app.getStateManager().getState(EditorCamera.class);
+						if(cam != null) {
+							cam.move(vec);
+						}
+					}
+				});
 			}
 		});
-		moveByGridButton.setSelected(mode == GridMode.MOVE_BY);
-		toolBar.add(moveByGridButton);
-		gridButtonGroup.add(moveByGridButton);
-		
-		final int preGridSize = setting.getGridSize();
-		
-		final JSlider gridSizeSlider = new JSlider(SwingConstants.HORIZONTAL, 1, 1000, preGridSize);
-		gridSizeSlider.setPaintTicks(true);
-		gridSizeSlider.setSnapToTicks(true);
-		gridSizeSlider.addChangeListener(new ChangeListener() {
+		componentTree.addTreeSelectionListener(new TreeSelectionListener() {
 			@Override
-			public void stateChanged(final ChangeEvent e) {
-				setting.setGridSize(gridSizeSlider.getValue());
-			}
-		});
-		toolBar.add(gridSizeSlider);
-		
-		final JTextField gridSizeField = new JTextField(String.valueOf(preGridSize / 100.0f), 5);
-		gridSizeSlider.addChangeListener(new ChangeListener() {
-			@Override
-			public void stateChanged(final ChangeEvent e) {
-				gridSizeField.setText(String.valueOf(gridSizeSlider.getValue() / 100.0f));
-			}
-		});
-		gridSizeField.addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(final KeyEvent e) {
-				if(e.getKeyCode() == KeyEvent.VK_ENTER) {
-					final String text = gridSizeField.getText();
-					final float f = Float.parseFloat(text);
-					gridSizeSlider.setValue(Math.round(f * 100));
+			public void valueChanged(final TreeSelectionEvent e) {
+				final TreePath path = componentTree.getSelectionPath();
+				if(path == null) {
+					return;
 				}
+				final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+				ui.getCameraToSelectedButton().setEnabled(selectedNode.getUserObject() instanceof SpatialEditable);
 			}
 		});
-		toolBar.add(gridSizeField);
-		
-		
-		frame.add(toolBar, BorderLayout.NORTH);
-		
-		
-		
-		final SelectionModel<Editable> selectionModel = new SelectionModelImpl<>();
-		
-		final ModelEditor editor = new ModelEditor();
-		editor.setSelectionModel(selectionModel);
-		
-		tdview = new ThreeDimensionalView(app);
-		tdview.setSelectionModel(selectionModel);
-		
-		
-		//
-		
-		final JPanel leftTopPanel = new JPanel(new BorderLayout());
+	}
+	
+	private void setUpFilesDialog() {
+		final JPanel filesDialogPanel = new JPanel(new BorderLayout());
 		
 		final JPanel createFilesPanel = new JPanel();
-		leftTopPanel.add(createFilesPanel, BorderLayout.NORTH);
+		filesDialogPanel.add(createFilesPanel, BorderLayout.NORTH);
 		
 		final JButton createFilesModelFileButton = new JButton(new AbstractAction("New model File into root") {
 			@Override
@@ -818,617 +1398,9 @@ public final class ModelEditorUi {
 				}
 			}
 		});
-		leftTopPanel.add(new JScrollPane(fileSelectionTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
-				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED), BorderLayout.CENTER);
-		
-		final JSplitPane vSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
-		vSplit.setTopComponent(leftTopPanel);
-		
-		final TreeModel componentTreeModel = new DefaultTreeModel(null) {
-			@Override
-			public void valueForPathChanged(final TreePath path, final Object newValue) {
-				System.out.println(newValue);
-				super.valueForPathChanged(path, newValue);
-			}
-		};
-		componentTree = new JTree(componentTreeModel);
-		componentTree.setCellRenderer(new DefaultTreeCellRenderer() {
-			@Override
-			public Component getTreeCellRendererComponent(final JTree tree, final Object value, final boolean sel, final boolean expanded,
-					final boolean leaf, final int row, final boolean hasFocus) {
-				final DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
-				final Editable editable = (Editable) node.getUserObject();
-				return(super.getTreeCellRendererComponent(fileSelectionTree, value, sel, expanded, editable != null ? !editable.canHaveChilds() : leaf, row, hasFocus));
-			}
-		});
-		componentTree.addTreeSelectionListener(new TreeSelectionListener() {
-			@Override
-			public void valueChanged(final TreeSelectionEvent e) {
-				final boolean b = (!componentTree.isSelectionEmpty());
-				moveCameraToSelectedButton.setEnabled(b);
-			}
-		});
-		vSplit.setRightComponent(new JScrollPane(componentTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+		filesDialogPanel.add(new JScrollPane(fileSelectionTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
 				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
-		
-		//final Component threeDimView = tdview.getComponent();
-		
-		//threeDimView.setMinimumSize(new Dimension(640, 480));
-		//threeDimView.setPreferredSize(new Dimension(640, 480));
-		
-		final Canvas canvas = new Canvas();
-		canvas.setBackground(Color.BLUE);
-		
-		
-		final SetableMutableSingleValueModel<Editable> selectedObjectsTableObject = new SetableMutableSingleValueModelImpl<>();
-		selectedObjectsEditorModes = new ArrayList<>();
-		
-		
-		final JSplitPane hLeftSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-		hLeftSplit.setLeftComponent(vSplit);
-		hLeftSplit.setRightComponent(new JPanel());
-		
-		final JSplitPane hRightSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-		hRightSplit.setLeftComponent(hLeftSplit);
-		
-		valuesTable = new JTable(new DefaultTableModel() {
-			private final String[] COLUMN_NAMES = new String[] {
-					"Name",
-					"Value"
-			};
-			
-			@Override
-			public void setValueAt(final Object aValue, final int row, final int column) {
-				if(column == 1) {
-					final Mapping<Runnable, Runnable> command = selectedObjectsEditorModes.get(row).createChangeCommand(selectedObjectsTableObject.source(), Objects.toString(aValue));
-					execute(command);
-				}
-			}
-			@Override
-			public Object getValueAt(final int row, final int column) {
-				final EditionMode mode = selectedObjectsEditorModes.get(row);
-				if(column == 0) {
-					return(mode.getName());
-				} else {
-					return(mode.get(selectedObjectsTableObject.source()));
-				}
-			}
-			@Override
-			public int getRowCount() {
-				return(selectedObjectsTableObject.isSet() ? selectedObjectsEditorModes.size() : 0);
-			}
-			@Override
-			public int getColumnCount() {
-				return(2);
-			}
-			@Override
-			public boolean isCellEditable(final int row, final int column) {
-				return(column == 1);
-			}
-			@Override
-			public Class<?> getColumnClass(final int columnIndex) {
-				return(String.class);
-			}
-			@Override
-			public String getColumnName(final int column) {
-				return(COLUMN_NAMES[column]);
-			}
-		}) {
-			@Override
-			public TableCellEditor getCellEditor(final int row, final int column) {
-				return(getDefaultEditor(new ArrayList<>(selectedObjectsTableObject.source().getEditionModes()).get(row).getTableClass()));
-			}
-			@Override
-			public TableCellRenderer getCellRenderer(final int row, final int column) {
-				if(column == 1) {
-					return(getDefaultRenderer(new ArrayList<>(selectedObjectsTableObject.source().getEditionModes()).get(row).getTableClass()));
-				} else {
-					return(super.getCellRenderer(row, column));
-				}
-			}
-		};
-		valuesTable.setDefaultEditor(Boolean.class, new DefaultCellEditor(new JCheckBox()) {
-			@Override
-			public Component getTableCellEditorComponent(final JTable table, final Object value, final boolean isSelected, final int row,
-					final int column) {
-				final JCheckBox comp = (JCheckBox) super.getTableCellEditorComponent(table, value, isSelected, row, column);
-				comp.setSelected(Boolean.parseBoolean(Objects.toString(value)));
-				return(comp);
-			}
-		});
-		valuesTable.setDefaultEditor(ColorRGBA.class, new DefaultCellEditor(new JTextField()) {
-			private JButton button;
-			private String data;
-			
-			{
-				setClickCountToStart(2);
-				
-				button = new JButton();
-				button.setBackground(Color.white);
-				button.setFont(button.getFont().deriveFont(Font.PLAIN));
-				button.setBorder(null);
-			}
-			
-			@Override
-			public Object getCellEditorValue() {
-				return data;
-			}
-			
-			@Override
-			public Component getTableCellEditorComponent(final JTable table, final Object value, final boolean isSelected, final int row, final int column) {
-				final ColorRGBA colorRgba = EditionMode.strToColor(Objects.toString(value));
-				final Color color = colorRgbaToColor(colorRgba);
-				
-				SwingUtilities.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						final Color newColor = JColorChooser.showDialog(frame, "Select color", color, true);
-						if(newColor != null) {
-							data = colorToStr(newColor);
-							fireEditingStopped();
-						} else {
-							fireEditingCanceled();
-						}
-					}
-				});
-				button.setBackground(color);
-				return button;
-			}
-			
-			private String colorToStr(final Color newColor) {
-				final StringBuilder b = new StringBuilder();
-				b.append(newColor.getRed());
-				b.append(", ");
-				b.append(newColor.getGreen());
-				b.append(", ");
-				b.append(newColor.getBlue());
-				b.append(", ");
-				b.append(newColor.getAlpha());
-				return(b.toString());
-			}
-			private Color colorRgbaToColor(final ColorRGBA colorIn) {
-				return(new Color(colorIn.getRed(), colorIn.getGreen(), colorIn.getBlue(), colorIn.getAlpha()));
-			}
-		});
-		valuesTable.setDefaultRenderer(ColorRGBA.class, new DefaultTableCellRenderer() {
-			@Override
-			public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected,
-					final boolean hasFocus, final int row, final int column) {
-				final JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-				label.setText("");
-				label.setBackground(colorRgbaToColor(EditionMode.strToColor(Objects.toString(value))));
-				return(label);
-			}
-			private Color colorRgbaToColor(final ColorRGBA colorIn) {
-				return(new Color(colorIn.getRed(), colorIn.getGreen(), colorIn.getBlue(), colorIn.getAlpha()));
-			}
-		});
-		valuesTable.setDefaultRenderer(Float.class, new DefaultTableCellRenderer() {
-			@Override
-			public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected,
-					final boolean hasFocus, final int row, final int column) {
-				final JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-				label.setHorizontalAlignment(JLabel.RIGHT);
-				return(label);
-			}
-		});
-		valuesTable.setDefaultEditor(Float.class, new DefaultCellEditor(new JTextField()) {
-			private JSpinner spinner;
-			
-			{
-				setClickCountToStart(1);
-				
-				spinner = new JSpinner(new SpinnerNumberModel(1, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, 0.01f));
-				spinner.setBorder(null);
-			}
-			
-			@Override
-			public Object getCellEditorValue() {
-				return(String.valueOf(spinner.getValue()));
-			}
-			
-			@Override
-			public Component getTableCellEditorComponent(final JTable table, final Object value, final boolean isSelected, final int row, final int column) {
-				final Float f = Float.parseFloat(Objects.toString(value));
-				spinner.setValue(f);
-				return(spinner);
-			}
-		});
-		
-		valuesTable.setDefaultRenderer(Boolean.class, new DefaultTableCellRenderer() {
-			@Override
-			public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected,
-					final boolean hasFocus, final int row, final int column) {
-				final JCheckBox box = new JCheckBox();
-				box.setSelected(Boolean.parseBoolean(Objects.toString(value)));
-				return(box);
-			}
-		});
-		
-		openedFile.addValueChangedHandler(new ValueChangedHandler<File>() {
-			@Override
-			public void valueChanged(final File oldValue, final File newValue) {
-				valuesTable.setEnabled(newValue != null);
-			}
-		});
-		valuesTable.getTableHeader().setReorderingAllowed(false);
-		valuesTable.setEnabled(false);
-		hRightSplit.setRightComponent(new JScrollPane(valuesTable, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
-		
-		frame.add(hRightSplit);
-		
-		
-		selectionModel.addSelectionChangedListener(new SelectionListener<Editable>() {
-			@Override
-			public void selectionAdded(final Object source, final Editable value) {
-				value.setSelected(true);
-			}
-			@Override
-			public void selectionRemoved(final Object source, final Editable value) {
-				value.setSelected(false);
-			}
-		});
-		selectionModel.addSelectionChangedListener(new SelectionListener<Editable>() {
-			private final Deque<Editable> selections = new LinkedList<>();
-			private Editable mainSelections;
-			private final List<AbstractButton> buttons = new LinkedList<>();
-			
-			@Override
-			public void selectionAdded(final Object source, final Editable value) {
-				if(mainSelections != null) {
-					selections.addFirst(mainSelections);
-				}
-				updateModes(value);
-				mainSelections = value;
-			}
-			@Override
-			public void selectionRemoved(final Object source, final Editable value) {
-				if(value.equals(mainSelections)) {
-					if(!selections.isEmpty()) {
-						mainSelections = selections.removeFirst();
-						updateModes(mainSelections);
-					} else {
-						mainSelections = null;
-						
-						selectedObjectsEditorModes.clear();
-						valuesTable.revalidate();
-						valuesTable.repaint();
-						
-						removeButtons();
-					}
-				} else {
-					selections.remove(value);
-				}
-			}
-			private void updateModes(final Editable value) {
-				final Collection<EditionMode> modes = value.getEditionModes();
-				selectedObjectsEditorModes.clear();
-				removeButtons();
-				
-				JToggleButton buttonToSelect = null;
-				int i = noEditModeButton.getParent().getComponentZOrder(noEditModeButton) + 1;
-				for(final EditionMode mode:modes) {
-					if(mode.isEditableByTable()) {
-						selectedObjectsEditorModes.add(mode);
-					}
-					
-					if(mode.isEditableByThreeDView()) {
-						final JToggleButton button = new JToggleButton(mode.getName());
-						button.addItemListener(new ItemListener() {
-							@Override
-							public void itemStateChanged(final ItemEvent e) {
-								if(button.isSelected()) {
-									app.enqueue(new Runnable() {
-										@Override
-										public void run() {
-											final AppStateManager stateMng = app.getStateManager();
-											final EditionState state = stateMng.getState(EditionState.class);
-											if(state != null) {
-												stateMng.detach(state);
-											}
-											
-											stateMng.attach(new TranslationState(new EditionStateModel() {
-												@Override
-												public void set(final String data) {
-													final Mapping<Runnable, Runnable> command = mode.createChangeCommand(value, data);
-													execute(command);
-													
-													valuesTable.revalidate();
-													valuesTable.repaint();
-												}
-												@Override
-												public void setTemporary(final String data) {
-													mode.createChangeCommand(value, data).getA().run();
-													valuesTable.revalidate();
-													valuesTable.repaint();
-												}
-												@Override
-												public String get() {
-													return(mode.get(value));
-												}
-												@Override
-												public Vector3f getCursorLocation() {
-													return(EditionMode.strToVec(EditionMode.WORLD_TRANSLATION.get(value)));
-												}
-												@Override
-												public float getGridSize() {
-													return(gridSizeSlider.getValue() / 100.0f);
-												}
-												@Override
-												public GridMode getGridMode() {
-													return(gridMode.source());
-												}
-											}));
-										}
-									});
-									selectedMode = mode;
-								}
-							}
-						});
-						
-						if(selectedMode == mode) {
-							buttonToSelect = button;
-						}
-						
-						editModeButtonGroup.add(button);
-						toolBar.add(button, i++);
-						buttons.add(button);
-					}
-				}
-				
-				if(buttonToSelect != null) {
-					buttonToSelect.setSelected(true);
-				} else {
-					noEditModeButton.setSelected(true);
-				}
-				
-				selectedObjectsTableObject.sink(value);
-				valuesTable.revalidate();
-				valuesTable.repaint();
-			}
-			private void removeButtons() {
-				for(final AbstractButton comp:buttons) {
-					toolBar.remove(comp);
-					editModeButtonGroup.remove(comp);
-				}
-				buttons.clear();
-				toolBar.revalidate();
-				toolBar.repaint();
-			}
-		});
-		
-		
-		//
-		
-		final MutableSingleValueModel<Boolean> updateTreeSelection = new MutableSingleValueModelImpl<>(Boolean.TRUE);
-		
-		final SelectionListener<Editable> updateComponentTreeSelectionListener = new SelectionListener<Editable>() {
-			@Override
-			public void selectionAdded(final Object source, final Editable value) {
-				value.setSelected(true);
-				
-				if(updateTreeSelection.source()) {
-					final DefaultMutableTreeNode node = searchTreeNodeForUserObject((DefaultMutableTreeNode) componentTree.getModel().getRoot(), value);
-					
-					if(node != null) {
-						final TreeNode[] nodes = ((DefaultTreeModel)componentTree.getModel()).getPathToRoot(node);
-						final TreePath[] curPaths = componentTree.getSelectionPaths();
-						if(curPaths == null) {
-							componentTree.setSelectionPath(new TreePath(nodes));
-						} else {
-							final int len = curPaths.length;
-							
-							final TreePath[] newPaths = new TreePath[len + 1];
-							System.arraycopy(curPaths, 0, newPaths, 0, len);
-							newPaths[len] = new TreePath(nodes);
-							componentTree.setSelectionPaths(newPaths);
-						}
-					}
-				}
-			}
-			@Override
-			public void selectionRemoved(final Object source, final Editable value) {
-				value.setSelected(false);
-				
-				if(updateTreeSelection.source()) {
-					final DefaultMutableTreeNode node = searchTreeNodeForUserObject((DefaultMutableTreeNode) componentTree.getModel().getRoot(), value);
-					
-					if(node != null) {
-						final TreeNode[] nodes = ((DefaultTreeModel)componentTree.getModel()).getPathToRoot(node);
-						final TreePath[] curPaths = componentTree.getSelectionPaths();
-						if(curPaths == null) {
-							return;
-						} else {
-							final Collection<TreePath> curPathCol = new ArrayList<>(Arrays.asList(curPaths));
-							curPathCol.remove(new TreePath(nodes));
-							componentTree.setSelectionPaths(curPathCol.toArray(new TreePath[curPathCol.size()]));
-						}
-					}
-				}
-			}
-			private DefaultMutableTreeNode searchTreeNodeForUserObject(final DefaultMutableTreeNode node, final Object userObject) {
-				if(Objects.equals(node.getUserObject(), userObject)) {
-					return(node);
-				}
-				
-				for(int i = 0, size = node.getChildCount(); i < size; i++) {
-					final DefaultMutableTreeNode result = searchTreeNodeForUserObject((DefaultMutableTreeNode) node.getChildAt(i), userObject);
-					if(result != null) {
-						return(result);
-					}
-				}
-				return(null);
-			}
-		};
-		
-		componentTree.addTreeSelectionListener(new TreeSelectionListener() {
-			@Override
-			public void valueChanged(final TreeSelectionEvent e) {
-				updateTreeSelection.sink(Boolean.FALSE);
-				
-				selectionModel.clear();
-				
-				final TreePath[] paths = componentTree.getSelectionPaths();
-				if(paths != null) {
-					for(final TreePath path:paths) {
-						final DefaultMutableTreeNode node = (DefaultMutableTreeNode)path.getLastPathComponent();
-						final Editable obj = (Editable) node.getUserObject();
-						selectionModel.add(obj);
-					}
-				} else {
-					selectionModel.clear();
-				}
-				
-				updateTreeSelection.sink(Boolean.TRUE);
-			}
-		});
-		selectionModel.addSelectionChangedListener(updateComponentTreeSelectionListener);
-		
-		componentTree.setEditable(true);
-		
-		
-		//
-		
-		componentTree.addMouseListener(new MouseAdapter() {
-			@Override
-			public void mousePressed(final MouseEvent e) {
-				if(SwingUtilities.isRightMouseButton(e)) {
-					final TreePath path = componentTree.getPathForLocation(e.getX(), e.getY());
-					if(path == null) {
-						return;
-					}
-					
-					componentTree.setSelectionPath(path);
-					
-					final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
-					final Editable obj = (Editable) selectedNode.getUserObject();
-					
-					
-					final JPopupMenu menu = new JPopupMenu();
-					
-					final JMenu addMenu = new JMenu("Add");
-					addMenu.setEnabled(obj.canHaveChilds());
-					menu.add(addMenu);
-					
-					addMenu.add(new JMenuItem(new AbstractAction("Node") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final NodeEditable newNode = new NodeEditable(app, "New node");
-							createEditable(newNode, selectedNode);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("AudioNode") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final AudioNodeEditable newNode = new AudioNodeEditable(app, "New audio node");
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					
-					addMenu.addSeparator();
-					
-					addMenu.add(new JMenuItem(new AbstractAction("Import model") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final JFileChooser chooser = new JFileChooser(setting.getLastLoadedModelPath());
-							if(chooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
-								
-								final Path openPath = openedFolder.source().toPath();
-								final File selectedFile = chooser.getSelectedFile();
-								final Path selectedPath = selectedFile.toPath();
-								setting.setLastLoadedModelPath(selectedFile.getAbsolutePath());
-								
-								final File relativePath = new File(openPath.relativize(selectedPath).toString());
-								if(relativePath.getPath().replace('\\', '/').matches("(?:^|/)[.][.](?:$|/)")) {
-									// TODO import
-									System.out.println("Ask for import");
-								}
-								
-								
-								final Spatial spatial = app.getAssetManager().loadModel(relativePath.getPath());
-								createEditable(new SpatialToEditableConverter(app).convert(spatial), selectedNode);
-								openFileChanged.sink(Boolean.TRUE);
-							}
-						}
-					}));
-					menu.show(componentTree, e.getX(), e.getY());
-					
-					addMenu.addSeparator();
-					
-					addMenu.add(new JMenuItem(new AbstractAction("Box") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final BoxEditable newNode = new BoxEditable(app, new Vector3f(0.5f, 0.5f, 0.5f), "New box");
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Cylinder") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final CylinderEditable newNode = new CylinderEditable(app, "New cylinder");
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Sphere") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final SphereEditable newNode = new SphereEditable(app, "New sphere");
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Dome") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final DomeEditable newNode = new DomeEditable(app, "New dome");
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Cone") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final DomeEditable newNode = new DomeEditable(app, "New cone");
-							newNode.setPlanes(2);
-							newNode.setRadialSamples(16);
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Tetrahedron") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final DomeEditable newNode = new DomeEditable(app, "New tetrahedron");
-							newNode.setPlanes(2);
-							newNode.setRadialSamples(3);
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Pyramid") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final DomeEditable newNode = new DomeEditable(app, "New pyramid");
-							newNode.setPlanes(2);
-							newNode.setRadialSamples(4);
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-					addMenu.add(new JMenuItem(new AbstractAction("Torus") {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							final TorusEditable newNode = new TorusEditable(app, "New torus");
-							createEditable(newNode, selectedNode);
-							openFileChanged.sink(Boolean.TRUE);
-						}
-					}));
-				}
-			}
-		});
+		ui.getFilesDialog().add(filesDialogPanel, BorderLayout.CENTER);
 	}
 	private void showLoadFolderUi() {
 		final JFileChooser chooser = new JFileChooser();
@@ -1523,7 +1495,7 @@ public final class ModelEditorUi {
 	}
 	private void exit() {
 		app.stop(true);
-		frame.dispose();
+		Runtime.getRuntime().exit(0);
 	}
 	
 	private void requestOpenFile(final File file) {
@@ -1549,10 +1521,16 @@ public final class ModelEditorUi {
 			
 			app.getAssetManager().clearCache();
 			final Spatial spatial = app.getAssetManager().loadModel(relativePath.getPath());
-			final Editable editable = new SpatialToEditableConverter(app).convert(spatial);
 			
+			final SetableMutableSingleValueModel<Editable> editable = new SetableMutableSingleValueModelImpl<>();
+			Utils.enqueueAndWait(app, new Runnable() {
+				@Override
+				public void run() {
+					editable.sink(SpatialEditable.valueOf(app, spatial));
+				}
+			});
 			tdview.clear();
-			setObject(editable);
+			setObject(editable.source());
 			
 			openedFile.sink(file);
 			openFileChanged.sink(Boolean.FALSE);
@@ -1563,15 +1541,27 @@ public final class ModelEditorUi {
 	private void saveFile() {
 		final DefaultTreeModel model = (DefaultTreeModel)componentTree.getModel();
 		final DefaultMutableTreeNode rootNode = (DefaultMutableTreeNode) model.getRoot();
-		final Editable edit = (Editable) rootNode.getUserObject();
-		final Spatial spatial = edit.createSpatial();
+		final SpatialEditable edit = (SpatialEditable) rootNode.getUserObject();
 		
-		try(OutputStream out = new FileOutputStream(openedFile.source())) {
-			new BinaryExporter().save(spatial, out);
-		} catch (final IOException e) {
-			throw new RuntimeException(e);
-		}
-		openFileChanged.sink(Boolean.FALSE);
+		Utils.enqueueAndWait(app, new Runnable() {
+			@Override
+			public void run() {
+				final Spatial spatial = edit.createSpatial();
+				
+				try(OutputStream out = new FileOutputStream(openedFile.source())) {
+					new BinaryExporter().save(spatial, out);
+				} catch (final IOException e) {
+					throw new RuntimeException(e);
+				}
+				
+				EventQueue.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						openFileChanged.sink(Boolean.FALSE);
+					}
+				});
+			}
+		});
 	}
 	
 	private void requestCloseFolder() {
@@ -1603,18 +1593,31 @@ public final class ModelEditorUi {
 	}
 	
 	public void execute(final Mapping<Runnable, Runnable> command) {
-		command.getA().run();
+		Utils.enqueueAndWait(app, new Runnable() {
+			@Override
+			public void run() {
+				command.getA().run();
+			}
+		});
 		undos.addFirst(command);
 		redos.clear();
 		openFileChanged.sink(Boolean.TRUE);
+		
+		valuesTable.revalidate();
+		valuesTable.repaint();
 	}
 	public void undo() {
 		if(undos.isEmpty()) {
 			throw new NoSuchElementException("No undo available.");
 		}
 		
-		final Mapping<Runnable, Runnable> mapping = undos.removeLast();
-		mapping.getB().run();
+		final Mapping<Runnable, Runnable> mapping = undos.removeFirst();
+		Utils.enqueueAndWait(app, new Runnable() {
+			@Override
+			public void run() {
+				mapping.getB().run();
+			}
+		});
 		redos.addFirst(mapping);
 		openFileChanged.sink(Boolean.TRUE);
 		
@@ -1626,8 +1629,13 @@ public final class ModelEditorUi {
 			throw new NoSuchElementException("No redo available.");
 		}
 		
-		final Mapping<Runnable, Runnable> mapping = redos.removeLast();
-		mapping.getA().run();
+		final Mapping<Runnable, Runnable> mapping = redos.removeFirst();
+		Utils.enqueueAndWait(app, new Runnable() {
+			@Override
+			public void run() {
+				mapping.getA().run();
+			}
+		});
 		undos.addFirst(mapping);
 		openFileChanged.sink(Boolean.TRUE);
 		
@@ -1642,11 +1650,14 @@ public final class ModelEditorUi {
 	private void setObject(final Editable obj) {
 		final DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(obj);
 		
-		if(obj.canHaveChilds()) {
-			for(int i = 0, size = obj.getChildCount(); i < size; i++) {
-				final Editable child = obj.getChild(i);
+		if(obj instanceof NodeEditable) {
+			final core.editables.NodeEditable asNode = (core.editables.NodeEditable) obj;
+			for(int i = 0, size = asNode.getChildCount(); i < size; i++) {
+				final Editable child = asNode.getChild(i);
 				setObject0(child, rootNode);
 			}
+		} else if(obj instanceof GeometryEditable) {
+			rootNode.add(new DefaultMutableTreeNode(((GeometryEditable)obj).getMesh()));
 		}
 		
 		componentTree.setModel(new DefaultTreeModel(rootNode) {
@@ -1654,7 +1665,7 @@ public final class ModelEditorUi {
 			public void valueForPathChanged(final TreePath path, final Object newValue) {
 				final DefaultMutableTreeNode node = (DefaultMutableTreeNode)path.getLastPathComponent();
 				final Editable obj = (Editable) node.getUserObject();
-				obj.setName(newValue != null ? newValue.toString() : "null");
+				//obj.setName(newValue != null ? newValue.toString() : "null");
 				nodeChanged(node);
 			}
 		});
@@ -1670,49 +1681,59 @@ public final class ModelEditorUi {
 		final DefaultMutableTreeNode node = new DefaultMutableTreeNode(obj);
 		parent.add(node);
 		
-		if(obj.canHaveChilds()) {
-			for(int i = 0, size = obj.getChildCount(); i < size; i++) {
-				final Editable child = obj.getChild(i);
+		if(obj instanceof core.editables.NodeEditable) {
+			final core.editables.NodeEditable asNode = (core.editables.NodeEditable) obj;
+			for(int i = 0, size = asNode.getChildCount(); i < size; i++) {
+				final Editable child = asNode.getChild(i);
 				setObject0(child, node);
 			}
+		} else if(obj instanceof GeometryEditable) {
+			node.add(new DefaultMutableTreeNode(((GeometryEditable)obj).getMesh()));
 		}
 	}
 	
-	private void includeObject(final Editable obj, final DefaultMutableTreeNode parent) {
+	/*private void includeObject(final Editable obj, final DefaultMutableTreeNode parent) {
 		final Editable parentObject = (Editable) parent.getUserObject();
 		
 		final DefaultMutableTreeNode curNode = new DefaultMutableTreeNode(obj);
 		parent.add(curNode);
 		
-		if(obj.canHaveChilds()) {
-			for(int i = 0, size = obj.getChildCount(); i < size; i++) {
-				final Editable child = obj.getChild(i);
+		if(obj instanceof core.editables.NodeEditable) {
+			final core.editables.NodeEditable asNode = (core.editables.NodeEditable) obj;
+			for(int i = 0, size = asNode.getChildCount(); i < size; i++) {
+				final Editable child = asNode.getChild(i);
 				setObject0(child, curNode);
 			}
 		}
 		
 		((DefaultTreeModel)componentTree.getModel()).nodeStructureChanged(parent);
 		tdview.addObject(obj, parentObject);
-	}
-	private void addObject(final Editable obj, final DefaultMutableTreeNode parent) {
-		final Editable parentObject = (Editable) parent.getUserObject();
-		
-		final DefaultMutableTreeNode curNode = new DefaultMutableTreeNode(obj);
-		parent.add(curNode);
-		parentObject.addChild(obj);
-		
-		if(obj.canHaveChilds()) {
-			for(int i = 0, size = obj.getChildCount(); i < size; i++) {
-				final Editable child = obj.getChild(i);
-				setObject0(child, curNode);
-			}
-		}
-		
+	}*/
+	
+	private void addObject(final SpatialEditable obj, final DefaultMutableTreeNode parent) {
+		((NodeEditable) parent.getUserObject()).addChild(obj);
+		parent.add(addObject0(obj));
 		((DefaultTreeModel)componentTree.getModel()).nodeStructureChanged(parent);
-		tdview.addObject(obj, parentObject);
+		tdview.addObject(obj, (NodeEditable)parent.getUserObject());
 	}
-	private void removeObject(final Editable obj, final DefaultMutableTreeNode parent) {
-		final Editable parentObject = (Editable) parent.getUserObject();
+	private DefaultMutableTreeNode addObject0(final Editable obj) {
+		final DefaultMutableTreeNode treeNode = new DefaultMutableTreeNode(obj);
+		
+		if(obj instanceof NodeEditable) {
+			final NodeEditable asNode = (NodeEditable) obj;
+			for(int i = 0, size = asNode.getChildCount(); i < size; i++) {
+				final SpatialEditable child = asNode.getChild(i);
+				treeNode.add(addObject0(child));
+				asNode.addChild(child);
+			}
+		} else if(obj instanceof GeometryEditable) {
+			treeNode.add(new DefaultMutableTreeNode(((GeometryEditable)obj).getMesh()));
+		}
+		return(treeNode);
+	}
+	
+	private void removeObject(final SpatialEditable obj, final DefaultMutableTreeNode parent) {
+		final NodeEditable parentObject = (NodeEditable) parent.getUserObject();
 		
 		for(int i = 0, size = parent.getChildCount(); i < size; i++) {
 			final DefaultMutableTreeNode child = (DefaultMutableTreeNode) parent.getChildAt(i);
@@ -1721,13 +1742,13 @@ public final class ModelEditorUi {
 				parentObject.removeChild(obj);
 				
 				((DefaultTreeModel)componentTree.getModel()).nodeStructureChanged(parent);
-				tdview.addObject(obj, parentObject);
+				//tdview.addObject(obj, parentObject);
 				break;
 			}
 		}
 	}
 	
-	private void createEditable(final Editable editable, final DefaultMutableTreeNode parent) {
+	private void createEditable(final SpatialEditable editable, final DefaultMutableTreeNode parent) {
 		execute(new FinalMapping<>(new Runnable() {
 			@Override
 			public void run() {
@@ -1761,5 +1782,103 @@ public final class ModelEditorUi {
 			}
 		}
 		throw new IllegalArgumentException("Found not a single free file name.");
+	}
+	
+	public void show() {
+		rearrangeWindows();
+		show(ui.getFrame());
+		show(ui.getSceneGraphDialog());
+		show(ui.getPropertiesDialog());
+		show(ui.getFilesDialog());
+		show(ui.getCameraWindow());
+		show(ui.getThreeDTransformWindow());
+	}
+	public void show(final Window window) {
+		window.pack();
+		window.setVisible(true);
+	}
+	
+	private void rearrangeWindows() {
+		final int screenWidth = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDisplayMode().getWidth();
+		final int screenHeight = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDisplayMode().getHeight();
+		
+		final Dimension scaledscreenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		
+		//final double scaleFactorWidth = screenWidth / (double)scaledscreenSize.width;
+		//final double scaleFactorHeight = screenHeight / (double)scaledscreenSize.height;
+		
+		final int[] threeDViewWidth = new int[1];
+		final int[] threeDViewHeight = new int[1];
+		
+		final long windowHandle = ((LwjglDisplay)app.getContext()).getWindowHandle();
+		GLFW.glfwGetWindowSize(windowHandle, threeDViewWidth, threeDViewHeight);
+		
+		GLFW.glfwSetWindowPos(windowHandle, screenWidth / 2 - threeDViewWidth[0] / 2, screenHeight / 2 - threeDViewHeight[0] / 2);
+		
+		final JFrame toolbarWindow = ui.getFrame();
+		toolbarWindow.pack();
+		setWindowLocation(toolbarWindow,
+				new Point(
+						scaledscreenSize.width / 2 - toolbarWindow.getWidth() / 2,
+						scaledscreenSize.height / 2 - toolbarWindow.getHeight() / 2 - threeDViewHeight[0] / 2)
+		);
+		
+		final JDialog filesWindow = ui.getFilesDialog();
+		filesWindow.pack();
+		setWindowLocation(filesWindow,
+				new Point(
+						scaledscreenSize.width / 2 - filesWindow.getWidth() / 2 - threeDViewWidth[0] / 2,
+						scaledscreenSize.height / 2 - filesWindow.getHeight())
+				);
+		
+		final JDialog sceneGraphWindow = ui.getSceneGraphDialog();
+		sceneGraphWindow.pack();
+		setWindowLocation(sceneGraphWindow,
+				new Point(
+						scaledscreenSize.width / 2 - sceneGraphWindow.getWidth() / 2 - threeDViewWidth[0] / 2,
+						scaledscreenSize.height / 2
+		));
+		
+		final JDialog propertyWindow = ui.getPropertiesDialog();
+		propertyWindow.pack();
+		setWindowLocation(propertyWindow,
+				new Point(
+						scaledscreenSize.width / 2 - propertyWindow.getWidth() / 2 + threeDViewWidth[0] / 2,
+						scaledscreenSize.height / 2 - propertyWindow.getHeight()
+		));
+		
+		final JDialog cameraWindow = ui.getCameraWindow();
+		cameraWindow.pack();
+		setWindowLocation(cameraWindow,
+				new Point(
+						scaledscreenSize.width / 2 - cameraWindow.getWidth() / 2 + threeDViewWidth[0] / 2,
+						scaledscreenSize.height / 2
+		));
+		
+		final JDialog threeDTransformWindow = ui.getThreeDTransformWindow();
+		threeDTransformWindow.pack();
+		setWindowLocation(threeDTransformWindow,
+				new Point(
+						scaledscreenSize.width / 2 - threeDTransformWindow.getWidth() / 2,
+						scaledscreenSize.height / 2 - threeDTransformWindow.getHeight() / 2 + threeDViewHeight[0] / 2
+		));
+	}
+	private void setWindowLocation(final Window window, final Point location) {
+		final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		
+		if(location.x < 0) {
+			location.x = 0;
+		}
+		if(location.y < 0) {
+			location.y = 0;
+		}
+		if(location.x + window.getWidth() >= screenSize.width) {
+			location.x = screenSize.width - ((int)(window.getWidth()));
+		}
+		if(location.y + window.getHeight() >= screenSize.height) {
+			location.y = screenSize.height - ((int)(window.getHeight()));
+		}
+		
+		window.setLocation(location);
 	}
 }

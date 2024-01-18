@@ -31,9 +31,10 @@ import online.money_daisuki.api.base.Requires;
 import online.money_daisuki.api.base.ValueChangedHandler;
 import online.money_daisuki.api.base.models.SetableMutableSingleValueModel;
 import online.money_daisuki.api.base.models.SetableMutableSingleValueModelImpl;
+import online.money_daisuki.api.misc.mapping.Mapping;
 
 public final class TranslationState extends BaseAppState implements EditionState {
-	private final EditionStateModel model;
+	//private final EditionStateModel model;
 	
 	private Node node;
 	
@@ -53,8 +54,18 @@ public final class TranslationState extends BaseAppState implements EditionState
 	private ViewPort cursorViewport;
 	private Node cursorViewportNode;
 	
-	public TranslationState(final EditionStateModel model) {
+	private final EditionStateModel model;
+	private final EditionMode mode;
+	private final EditionMode worldCoordinates;
+	
+	private Geometry debugGeo0;
+	private Geometry debugGeo1;
+	private Geometry debugGeo2;
+	
+	public TranslationState(final EditionStateModel model, final EditionMode mode, final EditionMode worldCoordinates) {
 		this.model = Requires.notNull(model, "model == null");
+		this.mode = Requires.notNull(mode, "mode == null");
+		this.worldCoordinates = Requires.notNull(worldCoordinates, "worldCoordinates == null");
 		this.selectedElement = new SetableMutableSingleValueModelImpl<>();
 		this.wrapplers = new ArrayList<>(6);
 	}
@@ -67,12 +78,14 @@ public final class TranslationState extends BaseAppState implements EditionState
 		
 		cursorViewportNode = new Node();
 		
+		createDebug();
+		
 		cursorViewport = app.getRenderManager().createMainView("Vector3f cursor", cursorViewportCamera);
 		cursorViewport.setClearFlags(false, true, false);
 		cursorViewport.attachScene(cursorViewportNode);
 		
 		
-		final Vector3f initLocation = model.getCursorLocation();
+		final Vector3f initLocation = (Vector3f) worldCoordinates.get();
 		
 		node = new Node();
 		node.setLocalTranslation(initLocation.add(0, 0, 0));
@@ -195,9 +208,11 @@ public final class TranslationState extends BaseAppState implements EditionState
 							dirToTarget.multLocal(clickedDistanceToTarget);
 							
 							clickedLocation = new Vector3f(tmp.vect3.set(cam.getLocation()).addLocal(dirToTarget));
-							clickedValue = EditionMode.strToVec(model.get());
+							clickedValue = (Vector3f)mode.get();
 							clickedNodeLocation = new Vector3f(node.getLocalTranslation());
 							clickedCollisionsPointNodeDifference = new Vector3f(clickedLocation).subtractLocal(node.getLocalTranslation());
+							
+							debugGeo0.setLocalTranslation(clickedLocation);
 						} finally {
 							tmp.release();
 						}
@@ -227,8 +242,12 @@ public final class TranslationState extends BaseAppState implements EditionState
 								moveDifference.multLocal(model.getGridSize());
 							}
 							
-							model.setTemporary(EditionMode.vecToStr(clickedValue));
-							model.set(EditionMode.vecToStr(tmp.vect7.set(clickedValue).addLocal(moveDifference)));
+							final Vector3f targetLocation = tmp.vect7.set(clickedValue).addLocal(moveDifference);
+							
+							mode.createChangeCommand(null, clickedValue).getA().run();
+							final Mapping<Runnable, Runnable> targetLocationCommand = mode.createChangeCommand(null, targetLocation);
+							model.execute(targetLocationCommand);
+							targetLocationCommand.getA().run();
 						} finally {
 							tmp.release();
 						}
@@ -246,6 +265,26 @@ public final class TranslationState extends BaseAppState implements EditionState
 		app.getInputManager().addMapping("TranslateMousePressed", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
 	}
 	
+	private void createDebug() {
+		debugGeo0 = new Geometry("Debug0", new Box(0.05f, 0.05f, 0.05f));
+		final Material debugGeo0Mat = new Material(getApplication().getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+		debugGeo0Mat.setColor("Color", ColorRGBA.Orange);
+		debugGeo0.setMaterial(debugGeo0Mat);
+		//cursorViewportNode.attachChild(debugGeo0);
+		
+		debugGeo1 = new Geometry("Debug1", new Box(0.05f, 0.05f, 0.05f));
+		final Material debugGeo1Mat = new Material(getApplication().getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+		debugGeo1Mat.setColor("Color", ColorRGBA.Black);
+		debugGeo1.setMaterial(debugGeo1Mat);
+		//cursorViewportNode.attachChild(debugGeo1);
+		
+		debugGeo2 = new Geometry("Debug2", new Box(0.05f, 0.05f, 0.05f));
+		final Material debugGeo2Mat = new Material(getApplication().getAssetManager(), "Common/MatDefs/Misc/Unshaded.j3md");
+		debugGeo2Mat.setColor("Color", ColorRGBA.Gray);
+		debugGeo2.setMaterial(debugGeo2Mat);
+		//cursorViewportNode.attachChild(debugGeo2);
+	}
+	
 	@Override
 	public void update(final float tpf) {
 		cursorViewportCamera.setLocation(getApplication().getCamera().getLocation());
@@ -257,13 +296,15 @@ public final class TranslationState extends BaseAppState implements EditionState
 			updateClicked();
 		}
 		
-		node.setLocalTranslation(model.getCursorLocation());
+		node.setLocalTranslation((Vector3f) worldCoordinates.get());
 	}
 	public void updateNonClicked() {
 		final Vector2f click2d = getApplication().getInputManager().getCursorPosition();
+		
 		final Camera cam = getApplication().getCamera();
 		final Vector3f click3d = cam.getWorldCoordinates(click2d, 0.0f);
 		final Vector3f dir = cam.getWorldCoordinates(click2d, 1.0f).subtract(click3d).normalizeLocal();
+		
 		final Ray ray = new Ray(click3d, dir);
 		
 		colResults.clear();
@@ -303,8 +344,10 @@ public final class TranslationState extends BaseAppState implements EditionState
 			
 			final Vector3f target = tmp.vect3.set(cam.getLocation()).addLocal(dirToTarget);
 			
+			debugGeo1.setLocalTranslation(target);
+			
 			final Vector3f movedWay = tmp.vect4.set(target).subtractLocal(clickedCollisionsPointNodeDifference);
-			final Vector3f moveDifference = tmp.vect5.set(movedWay.subtract(clickedNodeLocation));
+			final Vector3f moveDifference = tmp.vect5.set(movedWay).subtractLocal(clickedNodeLocation);
 			moveDifference.multLocal(selectedElement.source().getMoveAxes());
 			
 			if(model.getGridMode() == GridMode.MOVE_BY) {
@@ -315,7 +358,9 @@ public final class TranslationState extends BaseAppState implements EditionState
 				moveDifference.multLocal(model.getGridSize());
 			}
 			
-			model.setTemporary(EditionMode.vecToStr(tmp.vect7.set(clickedValue).addLocal(moveDifference)));
+			final Vector3f finalTarget = tmp.vect7.set(clickedValue).add(moveDifference);
+			debugGeo2.setLocalTranslation(finalTarget);
+			model.executeTemporary(mode.createChangeCommand(null, finalTarget));
 		} finally {
 			tmp.release();
 		}
@@ -336,7 +381,6 @@ public final class TranslationState extends BaseAppState implements EditionState
 		app.getInputManager().deleteMapping("TranslateMousePressed");
 		app.getRenderManager().removeMainView("Vector3f cursor");
 	}
-	
 	
 	private static final class Wrappler {
 		private final Spatial spatial;

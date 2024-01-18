@@ -1,21 +1,16 @@
 package core.threed;
 
-import com.jme3.math.Vector3f;
-
 import core.GridMode;
+import online.money_daisuki.api.misc.mapping.Mapping;
 
 public interface EditionStateModel {
-	
-	void set(String vecToStr);
-	
-	void setTemporary(String vecToStr);
-	
-	String get();
-	
-	Vector3f getCursorLocation();
 	
 	float getGridSize();
 	
 	GridMode getGridMode();
+	
+	void execute(Mapping<Runnable, Runnable> command);
+	
+	void executeTemporary(Mapping<Runnable, Runnable> command);
 	
 }

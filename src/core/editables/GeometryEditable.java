@@ -1,74 +1,50 @@
 package core.editables;
 
-import java.util.ArrayList;
-import java.util.Collection;
-
-import com.jme3.app.SimpleApplication;
+import com.jme3.app.Application;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.collision.shapes.CollisionShape;
 import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.util.CollisionShapeFactory;
-import com.jme3.math.Quaternion;
-import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Spatial;
 
+import online.money_daisuki.api.base.DataSink;
 import online.money_daisuki.api.base.Requires;
 
-public final class GeometryEditable implements Editable {
-	private static final Collection<EditionMode> MODS = new ArrayList<>(1) {
-		{
-			add(EditionMode.NAME);
-			add(EditionMode.LOCAL_TRANSLATION);
-			add(EditionMode.LOCAL_ROTATION);
-			add(EditionMode.LOCAL_SCALE);
-		}
-	};
-	
-	private final SimpleApplication app;
-	private final Geometry spatial;
-	
+public final class GeometryEditable extends SpatialEditable {
 	private RigidBodyControl selectionControl;
+	private MeshEditable mesh;
+	private DataSink<? super MeshEditable> meshChangedListener;
 	
-	public GeometryEditable(final SimpleApplication app, final Geometry geometry) {
-		this.app = Requires.notNull(app, "app == null");
-		this.spatial = Requires.notNull(geometry, "geometry == null");
-	}
-	
-	@Override
-	public void addChild(final Editable child) {
-		throw new UnsupportedOperationException();
-	}
-	@Override
-	public boolean canHaveChilds() {
-		return(false);
-	}
-	@Override
-	public Editable getChild(final int i) {
-		throw new ArrayIndexOutOfBoundsException();
-	}
-	@Override
-	public int getChildCount() {
-		return(0);
-	}
-	@Override
-	public void removeChild(final Editable editable) {
-		throw new UnsupportedOperationException();
+	public GeometryEditable(final Application app, final Geometry geo, final MeshEditable mesh) {
+		super(app, geo);
+		
+		setMesh(Requires.notNull(mesh, "mesh == null"));
+		setName(geo.getName());
 	}
 	
-	@Override
-	public Spatial getSpatial() {
-		return (spatial);
+	private void setMesh(final MeshEditable mesh) {
+		Requires.notNull(mesh, "mesh == null");
+		
+		if(this.mesh != null) {
+			this.mesh.removeMeshChangedListener(meshChangedListener);
+		}
+		
+		meshChangedListener = new DataSink<MeshEditable>() {
+			@Override
+			public void sink(final MeshEditable value) {
+				((Geometry)getSpatial()).setMesh(value.getMesh());
+			}
+		};
+		mesh.addMeshChangedListener(meshChangedListener);
+		this.mesh = mesh;
 	}
-	
-	
-	@Override
-	public Vector3f getWorldTranslation() {
-		return(spatial.getWorldTranslation());
-	}
-	
+
 	@Override
 	public void setSelected(final boolean b) {
+		final Application app = getApplication();
+		final Spatial spatial = getSpatial();
+		
 		app.enqueue(new Runnable() {
 			@Override
 			public void run() {
@@ -96,92 +72,23 @@ public final class GeometryEditable implements Editable {
 		});
 	}
 	
-	@Override
-	public String toString() {
-		return(getName());
-	}
-	
-	@Override
-	public Collection<EditionMode> getEditionModes() {
-		return(MODS);
-	}
-	
-	@Override
-	public Vector3f getLocalTranslation() {
-		return(spatial.getLocalTranslation());
-	}
-	@Override
-	public void setLocalTranslation(final Vector3f vec) {
-		final Vector3f newVec = new Vector3f(vec);
-		app.enqueue(new Runnable() {
-			@Override
-			public void run() {
-				spatial.setLocalTranslation(newVec);
-			}
-		});
-	}
-	
-	@Override
-	public Quaternion getLocalRotation() {
-		return(spatial.getLocalRotation());
-	}
-	@Override
-	public void setLocalRotation(final Quaternion quat) {
-		final Quaternion newQuat = new Quaternion(quat);
-		app.enqueue(new Runnable() {
-			@Override
-			public void run() {
-				spatial.setLocalRotation(newQuat);
-			}
-		});
-	}
-	
-	@Override
-	public Vector3f getLocalScale() {
-		return(spatial.getLocalScale());
-	}
-	@Override
-	public void setLocalScale(final Vector3f vec) {
-		final Vector3f newVec = new Vector3f(vec);
-		app.enqueue(new Runnable() {
-			@Override
-			public void run() {
-				spatial.setLocalScale(newVec);
-				
-				if(selectionControl != null) {
-					vec.maxLocal(new Vector3f(0, 0, 0));
-					
-					selectionControl.setPhysicsScale(newVec);
-				}
-			}
-		});
-	}
-	
-	@Override
-	public void setName(final String newName) {
-		app.enqueue(new Runnable() {
-			@Override
-			public void run() {
-				spatial.setName(newName);
-			}
-		});
-	}
-	@Override
-	public String getName() {
-		return(spatial.getName());
+	public MeshEditable getMesh() {
+		return(mesh);
 	}
 	
 	@Override
 	public Spatial createSpatial() {
-		final Geometry geo = new Geometry();
-		geo.setName(spatial.getName());
-		geo.setLocalTranslation(spatial.getLocalTranslation());
-		geo.setLocalScale(spatial.getLocalScale());
-		geo.setLocalRotation(spatial.getLocalRotation());
+		final Geometry geo = (Geometry) getSpatial();
 		
-		geo.setMesh(spatial.getMesh());
-		geo.setMaterial(spatial.getMaterial());
-		
-		return(geo);
+		final Geometry newGeo = new Geometry(geo.getName(), mesh.createMesh());
+		newGeo.setLocalTranslation(geo.getLocalTranslation());
+		newGeo.setLocalScale(geo.getLocalScale());
+		newGeo.setLocalRotation(geo.getLocalRotation());
+		newGeo.setMaterial(geo.getMaterial().clone());
+		return(newGeo);
+	}
+	
+	static GeometryEditable valueOf(final Application app, final Geometry geo) {
+		return(new GeometryEditable(app, geo, MeshEditable.valueOf(geo.getMesh())));
 	}
 }

@@ -6,11 +6,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.bullet.BulletAppState;
+import com.jme3.input.InputManager;
 
 import core.setting.ModelSetting;
 import core.setting.Setting;
@@ -45,10 +45,12 @@ public class Main {
 		final ArgumentParserResult result = handler.source();
 		
 		final Setting setting = loadSetting(result);
-		
 		final SimpleApplication app = new SimpleApplication() {
 			@Override
 			public void simpleInitApp() {
+				final InputManager input = getInputManager();
+				input.deleteMapping("SIMPLEAPP_Exit");
+				
 				getFlyByCamera().setMoveSpeed(15f);
 				getFlyByCamera().setDragToRotate(true);
 				
@@ -65,14 +67,12 @@ public class Main {
 					@Override
 					public void run() {
 						final ModelEditorUi ui = new ModelEditorUi(myself, setting.getModel(ModelSetting.class));
-						final JFrame frame = ui.getFrame();
-						
-						frame.pack();
-						frame.setVisible(true);
+						ui.show();
 					}
 				});
 			}
 		};
+		app.setPauseOnLostFocus(false);
 		app.start();
 	}
 	

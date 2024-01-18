@@ -5,6 +5,7 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 
 import core.editables.Editable;
+import core.editables.NodeEditable;
 import online.money_daisuki.api.base.Requires;
 
 public final class ThreeDimensionalView {
@@ -63,13 +64,14 @@ public final class ThreeDimensionalView {
 		final Spatial spatial = object.getSpatial();
 		parent.attachChild(spatial);
 		
-		if(object.canHaveChilds()) {
-			for(int i = 0, size = object.getChildCount(); i < size; i++) {
-				addObject(object.getChild(i), (Node) spatial);
+		if(object instanceof NodeEditable) {
+			final NodeEditable asNode = (core.editables.NodeEditable) object;
+			for(int i = 0, size = asNode.getChildCount(); i < size; i++) {
+				addObject(asNode.getChild(i), (Node) spatial);
 			}
 		}
 	}
-	public void addObject(final Editable object, final Editable parent) {
+	public void addObject(final Editable object, final NodeEditable parent) {
 		addObject(object, (Node)parent.getSpatial());
 	}
 
