@@ -18,6 +18,7 @@ import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JSlider;
 import javax.swing.JTable;
@@ -197,8 +198,12 @@ public final class UiElementsStruct {
 			public void keyPressed(final KeyEvent e) {
 				if(e.getKeyCode() == KeyEvent.VK_ENTER) {
 					final String text = gridSizeField.getText();
-					final float f = Float.parseFloat(text);
-					gridSizeSlider.setValue(Math.round(f * 100));
+					try {
+						final float f = Float.parseFloat(text);
+						gridSizeSlider.setValue(Math.round(f * 100));
+					} catch(final NumberFormatException e1) {
+						JOptionPane.showMessageDialog(topMenuWindow, "Could not parse float: " + e1);
+					}
 				}
 			}
 		});
@@ -460,21 +465,21 @@ public final class UiElementsStruct {
 		return (gridSizeField);
 	}
 	
-	public JDialog getSceneGraphDialog() {
+	public JDialog getSceneGraphWindow() {
 		return (sceneGraphDialog);
 	}
 	public JTree getSceneGraphTree() {
 		return (sceneGraphTree);
 	}
 	
-	public JDialog getPropertiesDialog() {
+	public JDialog getPropertiesWindow() {
 		return (propertiesDialog);
 	}
 	public JTable getPropertiesTable() {
 		return (propertiesTable);
 	}
 	
-	public JDialog getFilesDialog() {
+	public JDialog getFilesWindow() {
 		return(filesDialog);
 	}
 	
