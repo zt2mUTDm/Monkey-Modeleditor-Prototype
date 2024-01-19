@@ -10,6 +10,8 @@ import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
@@ -138,12 +140,6 @@ public final class ModelEditorUi {
 	
 	private final UiElementsStruct ui;
 	
-	private void sort() {
-		tdview = new ThreeDimensionalView(app);
-		tdview.setSelectionModel(selectionModel);
-		
-		
-	}
 	public ModelEditorUi(final SimpleApplication app, final ModelSetting setting) {
 		this.app = Requires.notNull(app, "app == null");
 		this.setting = Requires.notNull(setting, "setting == null");
@@ -151,12 +147,21 @@ public final class ModelEditorUi {
 		ui = new UiElementsStruct();
 		
 		setupTopMenuWindow();
+		setThreeDWindow();
 		setupSceneGraphWindow();
 		setupPropertiesWindow();
 		setupCameraWindow();
 		setupFilesWindow();
 		setupThreeDTransform();
-		sort();
+		
+		boolean allWindowsAt00 = true;
+		for(final Window window:getAllWindows()) {
+			allWindowsAt00&= window.getX() == 0 && window.getY() == 0;
+		}
+		
+		if(allWindowsAt00) {
+			rearrangeWindows();
+		}
 	}
 	
 	private void setupTopMenuWindow() {
@@ -164,6 +169,20 @@ public final class ModelEditorUi {
 			@Override
 			public void windowClosing(final WindowEvent e) {
 				requestExit();
+			}
+		});
+		
+		ui.getTopMenuWindow().setSize(setting.getTopMenuWindowSize());
+		setWindowLocation(ui.getTopMenuWindow(), setting.getTopMenuWindowLocation());
+		
+		ui.getTopMenuWindow().addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentMoved(final ComponentEvent e) {
+				setting.setTopWindowLocation(ui.getTopMenuWindow().getLocation());
+			}
+			@Override
+			public void componentResized(final ComponentEvent e) {
+				setting.setTopWindowSize(ui.getTopMenuWindow().getSize());
 			}
 		});
 		
@@ -386,7 +405,25 @@ public final class ModelEditorUi {
 		
 		ui.getGridSizeField().setText(String.valueOf(preGridSize / 100.0f));
 	}
+	private void setThreeDWindow() {
+		tdview = new ThreeDimensionalView(app);
+		tdview.setSelectionModel(selectionModel);
+	}
 	private void setupSceneGraphWindow() {
+		ui.getSceneGraphWindow().setSize(setting.getSceneGraphWindowSize());
+		setWindowLocation(ui.getSceneGraphWindow(), setting.getSceneGraphWindowLocation());
+		
+		ui.getSceneGraphWindow().addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentMoved(final ComponentEvent e) {
+				setting.setSceneGraphWindowLocation(ui.getSceneGraphWindow().getLocation());
+			}
+			@Override
+			public void componentResized(final ComponentEvent e) {
+				setting.setSceneGraphWindowSize(ui.getSceneGraphWindow().getSize());
+			}
+		});
+		
 		final MutableSingleValueModel<Boolean> updateTreeSelection = new MutableSingleValueModelImpl<>(Boolean.TRUE);
 		
 		final SelectionListener<Editable> updateComponentTreeSelectionListener = new SelectionListener<Editable>() {
@@ -682,6 +719,20 @@ public final class ModelEditorUi {
 		});
 	}
 	private void setupPropertiesWindow() {
+		ui.getPropertiesWindow().setSize(setting.getPropertiesWindowSize());
+		setWindowLocation(ui.getPropertiesWindow(), setting.getPropertiesWindowLocation());
+		
+		ui.getPropertiesWindow().addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentMoved(final ComponentEvent e) {
+				setting.setPropertiesWindowLocation(ui.getPropertiesWindow().getLocation());
+			}
+			@Override
+			public void componentResized(final ComponentEvent e) {
+				setting.setPropertiesWindowSize(ui.getPropertiesWindow().getSize());
+			}
+		});
+		
 		openedFile.addValueChangedHandler(new ValueChangedHandler<File>() {
 			@Override
 			public void valueChanged(final File oldValue, final File newValue) {
@@ -689,7 +740,7 @@ public final class ModelEditorUi {
 			}
 		});
 		
-
+		
 		final SetableMutableSingleValueModel<Editable> selectedObjectsTableObject = new SetableMutableSingleValueModelImpl<>();
 		selectedObjectsEditorModes = new ArrayList<>();
 		
@@ -865,7 +916,21 @@ public final class ModelEditorUi {
 			}
 		});
 	}
- 	private void setupCameraWindow() {
+	private void setupCameraWindow() {
+		ui.getCameraWindow().setSize(setting.getCameraWindowSize());
+		setWindowLocation(ui.getCameraWindow(), setting.getCameraWindowLocation());
+		
+		ui.getCameraWindow().addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentMoved(final ComponentEvent e) {
+				setting.setCameraWindowLocation(ui.getCameraWindow().getLocation());
+			}
+			@Override
+			public void componentResized(final ComponentEvent e) {
+				setting.setCameraWindowSize(ui.getCameraWindow().getSize());
+			}
+		});
+		
 		final Runnable setFlyByCamRunnable = new Runnable() {
 			private final EditorCamera flyCamState = new FlyByCamEditorState();
 			@Override
@@ -945,6 +1010,20 @@ public final class ModelEditorUi {
 		});
 	}
 	private void setupFilesWindow() {
+		ui.getFilesWindow().setSize(setting.getFilesWindowSize());
+		setWindowLocation(ui.getFilesWindow(), setting.getFilesWindowLocation());
+		
+		ui.getFilesWindow().addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentMoved(final ComponentEvent e) {
+				setting.setFilesWindowLocation(ui.getFilesWindow().getLocation());
+			}
+			@Override
+			public void componentResized(final ComponentEvent e) {
+				setting.setFilesWindowSize(ui.getFilesWindow().getSize());
+			}
+		});
+		
 		final JPanel filesDialogPanel = new JPanel(new BorderLayout());
 		
 		final JPanel createFilesPanel = new JPanel();
@@ -1228,9 +1307,23 @@ public final class ModelEditorUi {
 		});
 		filesDialogPanel.add(new JScrollPane(fileSelectionTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
 				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
-		ui.getFilesDialog().add(filesDialogPanel, BorderLayout.CENTER);
+		ui.getFilesWindow().add(filesDialogPanel, BorderLayout.CENTER);
 	}
 	private void setupThreeDTransform() {
+		ui.getThreeDTransformWindow().setSize(setting.getThreeDTransformWindowSize());
+		setWindowLocation(ui.getThreeDTransformWindow(), setting.getThreeDTransformWindowLocation());
+		
+		ui.getThreeDTransformWindow().addComponentListener(new ComponentAdapter() {
+			@Override
+			public void componentMoved(final ComponentEvent e) {
+				setting.setThreeDTransformWindowLocation(ui.getThreeDTransformWindow().getLocation());
+			}
+			@Override
+			public void componentResized(final ComponentEvent e) {
+				setting.setThreeDTransformWindowSize(ui.getThreeDTransformWindow().getSize());
+			}
+		});
+		
 		ui.getThreeDTransformNoneButton().addItemListener(new ItemListener() {
 			@Override
 			public void itemStateChanged(final ItemEvent e) {
@@ -1612,19 +1705,13 @@ public final class ModelEditorUi {
 	}
 	
 	public void show() {
-		rearrangeWindows();
-		show(ui.getTopMenuWindow());
-		show(ui.getSceneGraphDialog());
-		show(ui.getPropertiesDialog());
-		show(ui.getFilesDialog());
-		show(ui.getCameraWindow());
-		show(ui.getThreeDTransformWindow());
+		for(final Window window:getAllWindows()) {
+			window.setVisible(true);
+		}
 	}
 	public void show(final Window window) {
-		window.pack();
 		window.setVisible(true);
 	}
-	
 	private void rearrangeWindows() {
 		final int screenWidth = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDisplayMode().getWidth();
 		final int screenHeight = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDisplayMode().getHeight();
@@ -1650,7 +1737,7 @@ public final class ModelEditorUi {
 						scaledscreenSize.height / 2 - toolbarWindow.getHeight() / 2 - threeDViewHeight[0] / 2)
 		);
 		
-		final JDialog filesWindow = ui.getFilesDialog();
+		final JDialog filesWindow = ui.getFilesWindow();
 		filesWindow.pack();
 		setWindowLocation(filesWindow,
 				new Point(
@@ -1658,7 +1745,7 @@ public final class ModelEditorUi {
 						scaledscreenSize.height / 2 - filesWindow.getHeight())
 				);
 		
-		final JDialog sceneGraphWindow = ui.getSceneGraphDialog();
+		final JDialog sceneGraphWindow = ui.getSceneGraphWindow();
 		sceneGraphWindow.pack();
 		setWindowLocation(sceneGraphWindow,
 				new Point(
@@ -1666,7 +1753,7 @@ public final class ModelEditorUi {
 						scaledscreenSize.height / 2
 		));
 		
-		final JDialog propertyWindow = ui.getPropertiesDialog();
+		final JDialog propertyWindow = ui.getPropertiesWindow();
 		propertyWindow.pack();
 		setWindowLocation(propertyWindow,
 				new Point(
@@ -1707,5 +1794,15 @@ public final class ModelEditorUi {
 		}
 		
 		window.setLocation(location);
+	}
+	private Window[] getAllWindows() {
+		return(new Window[] {
+			ui.getTopMenuWindow(),
+			ui.getSceneGraphWindow(),
+			ui.getPropertiesWindow(),
+			ui.getFilesWindow(),
+			ui.getCameraWindow(),
+			ui.getThreeDTransformWindow()
+		});
 	}
 }
