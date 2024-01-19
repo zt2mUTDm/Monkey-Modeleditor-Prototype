@@ -1,13 +1,16 @@
 package core.ui;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.Objects;
 
 import javax.swing.ButtonGroup;
+import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
@@ -15,17 +18,34 @@ import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JScrollPane;
 import javax.swing.JSlider;
+import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
+import javax.swing.JTree;
 import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+
+import com.jme3.math.Quaternion;
+import com.jme3.math.Vector3f;
+
+import core.editables.Editable;
+import core.editables.NodeEditable;
+import core.editables.SpatialEditable;
 
 public final class UiElementsStruct {
-	private final JFrame frame = new JFrame("Modeleditor");
+	private final JFrame topMenuWindow = new JFrame("Modeleditor");
 	
 	private final JMenuBar topMenuBar = new JMenuBar();
 	
@@ -59,21 +79,23 @@ public final class UiElementsStruct {
 	private final JSlider gridSizeSlider = new JSlider(SwingConstants.HORIZONTAL, 1, 1000, 100);
 	private final JTextField gridSizeField = new JTextField(5);
 	
-	private final JDialog sceneGraphDialog = new JDialog(frame, "Scene graph", false);
+	private final JDialog sceneGraphDialog = new JDialog(topMenuWindow, "Scene graph", false);
+	private final JTree sceneGraphTree = new JTree(new DefaultTreeModel(null));
 	
-	private final JDialog propertiesDialog = new JDialog(frame, "Properties", false);
+	private final JDialog propertiesDialog = new JDialog(topMenuWindow, "Properties", false);
+	private final JTable propertiesTable = new ActualTypeTable();
 	
-	private final JDialog filesDialog = new JDialog(frame, "Files", false);
+	private final JDialog filesDialog = new JDialog(topMenuWindow, "Files", false);
 	
-	private final JDialog cameraWindow = new JDialog(frame, "Camera", false);
+	private final JDialog cameraWindow = new JDialog(topMenuWindow, "Camera", false);
 	private final JToolBar cameraToolbar = new JToolBar();
 	private final ButtonGroup cameraButtonGroup = new ButtonGroup();
 	private final JToggleButton cameraFlyByCamButton = new JToggleButton("FlyByCam");
 	private final JToggleButton cameraChaseCamButton = new JToggleButton("ChaseCamera");
-	private final JToggleButton cameraToOriginButton = new JToggleButton("To origin");
-	private final JToggleButton cameraToSelectedButton = new JToggleButton("To selected");
+	private final JButton cameraToOriginButton = new JButton("To origin");
+	private final JButton cameraToSelectedButton = new JButton("To selected");
 	
-	private final JDialog threeDTransformWindow = new JDialog(frame, "3D transform", false);
+	private final JDialog threeDTransformWindow = new JDialog(topMenuWindow, "3D transform", false);
 	private final JToolBar threeDTransformToolbar = new JToolBar();
 	private final ButtonGroup threeDTransformButtonGroup = new ButtonGroup();
 	private final JToggleButton threeDTransformNoneButton = new JToggleButton("None");
@@ -91,8 +113,8 @@ public final class UiElementsStruct {
 		setupThreeDTransformWindow();
 	}
 	private void setupTopMenuWindow() {
-		frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		frame.setJMenuBar(topMenuBar);
+		topMenuWindow.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		topMenuWindow.setJMenuBar(topMenuBar);
 		
 		topMenuBar.add(topMenuFile);
 		
@@ -138,7 +160,7 @@ public final class UiElementsStruct {
 		topMenuWindows.add(threeDTransformVisibilityCheckBox);
 		
 		toolbar.setFloatable(false);
-		frame.add(toolbar, BorderLayout.NORTH);
+		topMenuWindow.add(toolbar, BorderLayout.NORTH);
 		
 		toolbar.add(toolbarOpen);
 		
@@ -202,6 +224,36 @@ public final class UiElementsStruct {
 				propertiesVisibilityCheckBox.setSelected(false);
 			}
 		});
+		
+		propertiesTable.setDefaultEditor(Float.class, new FloatTableEditor());
+		propertiesTable.setDefaultEditor(Integer.class, new IntegerTableEditor());
+		propertiesTable.setDefaultEditor(Boolean.class, new DefaultCellEditor(new JCheckBox()) {
+			@Override
+			public Component getTableCellEditorComponent(final JTable table, final Object value, final boolean isSelected, final int row,
+					final int column) {
+				final JCheckBox comp = (JCheckBox) super.getTableCellEditorComponent(table, value, isSelected, row, column);
+				comp.setSelected(Boolean.parseBoolean(Objects.toString(value)));
+				return(comp);
+			}
+		});
+		propertiesTable.setDefaultRenderer(Boolean.class, new DefaultTableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected,
+					final boolean hasFocus, final int row, final int column) {
+				final JCheckBox box = new JCheckBox();
+				box.setSelected(Boolean.parseBoolean(Objects.toString(value)));
+				return(box);
+			}
+		});
+		propertiesTable.setDefaultRenderer(Vector3f.class, new Vector3fTableRenderer());
+		propertiesTable.setDefaultEditor(Vector3f.class, new Vector3fTableEditor());
+		propertiesTable.setDefaultRenderer(Quaternion.class, new QuaternionTableRenderer());
+		propertiesTable.setDefaultEditor(Quaternion.class, new QuaternionTableEditor());
+		
+		propertiesTable.getTableHeader().setReorderingAllowed(false);
+		propertiesTable.setEnabled(false);
+		
+		propertiesDialog.add(new JScrollPane(propertiesTable, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
 	}
 	private void setupSceneGraphWindow() {
 		sceneGraphDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
@@ -223,6 +275,29 @@ public final class UiElementsStruct {
 				sceneGraphVisibilityCheckBox.setSelected(false);
 			}
 		});
+		
+		sceneGraphTree.setCellRenderer(new DefaultTreeCellRenderer() {
+			@Override
+			public Component getTreeCellRendererComponent(final JTree tree, final Object value, final boolean sel, final boolean expanded,
+					final boolean leaf, final int row, final boolean hasFocus) {
+				final DefaultMutableTreeNode node = (DefaultMutableTreeNode) value;
+				final Editable editable = (Editable) node.getUserObject();
+				return(super.getTreeCellRendererComponent(tree, value, sel, expanded, editable != null ? !(editable instanceof NodeEditable) : leaf, row, hasFocus));
+			}
+		});
+		sceneGraphTree.addTreeSelectionListener(new TreeSelectionListener() {
+			@Override
+			public void valueChanged(final TreeSelectionEvent e) {
+				final TreePath path = sceneGraphTree.getSelectionPath();
+				if(path == null) {
+					return;
+				}
+				final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
+				cameraToSelectedButton.setEnabled(selectedNode.getUserObject() instanceof SpatialEditable);
+			}
+		});
+		sceneGraphDialog.add(new JScrollPane(sceneGraphTree, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS,
+				JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED));
 	}
 	private void setupFilesWindow() {
 		filesDialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
@@ -311,9 +386,8 @@ public final class UiElementsStruct {
 		threeDTransformToolbar.add(threeDTransformNoneButton);
 	}
 	
-	
-	public JFrame getFrame() {
-		return (frame);
+	public JFrame getTopMenuWindow() {
+		return (topMenuWindow);
 	}
 	
 	public JMenuBar getTopMenuBar() {
@@ -389,10 +463,17 @@ public final class UiElementsStruct {
 	public JDialog getSceneGraphDialog() {
 		return (sceneGraphDialog);
 	}
+	public JTree getSceneGraphTree() {
+		return (sceneGraphTree);
+	}
 	
 	public JDialog getPropertiesDialog() {
 		return (propertiesDialog);
 	}
+	public JTable getPropertiesTable() {
+		return (propertiesTable);
+	}
+	
 	public JDialog getFilesDialog() {
 		return(filesDialog);
 	}
@@ -412,10 +493,10 @@ public final class UiElementsStruct {
 	public JToggleButton getCameraChaseCamButton() {
 		return (cameraChaseCamButton);
 	}
-	public JToggleButton getCameraToOriginButton() {
+	public JButton getCameraToOriginButton() {
 		return (cameraToOriginButton);
 	}
-	public JToggleButton getCameraToSelectedButton() {
+	public JButton getCameraToSelectedButton() {
 		return (cameraToSelectedButton);
 	}
 	
