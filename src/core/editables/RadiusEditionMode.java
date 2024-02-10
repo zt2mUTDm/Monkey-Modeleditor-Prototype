@@ -2,6 +2,7 @@ package core.editables;
 
 import core.threed.EditionState;
 import core.threed.EditionStateModel;
+import online.money_daisuki.api.base.Requires;
 import online.money_daisuki.api.misc.mapping.FinalMapping;
 import online.money_daisuki.api.misc.mapping.Mapping;
 
@@ -9,6 +10,7 @@ public final class RadiusEditionMode implements EditionMode {
 	private final ValueIo<Float> io;
 	
 	public RadiusEditionMode(final CylinderMeshEditable parent) {
+		Requires.notNull(parent, "parent == null");
 		io = new ValueIo<Float>() {
 			@Override
 			public Float get() {
@@ -21,6 +23,7 @@ public final class RadiusEditionMode implements EditionMode {
 		};
 	}
 	public RadiusEditionMode(final SphereMeshEditable parent) {
+		Requires.notNull(parent, "parent == null");
 		io = new ValueIo<Float>() {
 			@Override
 			public Float get() {
@@ -33,6 +36,59 @@ public final class RadiusEditionMode implements EditionMode {
 		};
 	}
 	public RadiusEditionMode(final DomeMeshEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getRadius());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setRadius(newValue.floatValue());
+			}
+		};
+	}
+	public RadiusEditionMode(final CapsuleCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getRadius());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setRadius(newValue.floatValue());
+			}
+		};
+	}
+	public RadiusEditionMode(final ConeCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getRadius());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setRadius(newValue.floatValue());
+			}
+		};
+	}
+	public RadiusEditionMode(final CylinderCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getRadius());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setRadius(newValue.floatValue());
+			}
+		};
+	}
+	public RadiusEditionMode(final SphereCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
 		io = new ValueIo<Float>() {
 			@Override
 			public Float get() {
@@ -83,7 +139,7 @@ public final class RadiusEditionMode implements EditionMode {
 	}
 	
 	@Override
-	public EditionState createEditionState(EditionStateModel model) {
+	public EditionState createEditionState(final EditionStateModel model) {
 		throw new UnsupportedOperationException();
 	}
 }

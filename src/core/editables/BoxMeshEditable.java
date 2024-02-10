@@ -34,5 +34,4 @@ public final class BoxMeshEditable extends MeshEditable {
 	private void updateMesh() {
 		setMesh(new Box(ext.getX(), ext.getY(), ext.getZ()));
 	}
-	
 }

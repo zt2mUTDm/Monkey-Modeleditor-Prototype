@@ -2,6 +2,7 @@ package core.editables;
 
 import core.threed.EditionState;
 import core.threed.EditionStateModel;
+import online.money_daisuki.api.base.Requires;
 import online.money_daisuki.api.misc.mapping.FinalMapping;
 import online.money_daisuki.api.misc.mapping.Mapping;
 
@@ -9,6 +10,46 @@ public final class HeightEditionMode implements EditionMode {
 	private final ValueIo<Float> io;
 	
 	public HeightEditionMode(final CylinderMeshEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getHeight());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setHeight(newValue.floatValue());
+			}
+		};
+	}
+	public HeightEditionMode(final CapsuleCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getHeight());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setHeight(newValue.floatValue());
+			}
+		};
+	}
+	public HeightEditionMode(final ConeCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Float>() {
+			@Override
+			public Float get() {
+				return(parent.getHeight());
+			}
+			@Override
+			public void set(final Float newValue) {
+				parent.setHeight(newValue.floatValue());
+			}
+		};
+	}
+	public HeightEditionMode(final CylinderCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
 		io = new ValueIo<Float>() {
 			@Override
 			public Float get() {
@@ -59,7 +100,7 @@ public final class HeightEditionMode implements EditionMode {
 	}
 	
 	@Override
-	public EditionState createEditionState(EditionStateModel model) {
+	public EditionState createEditionState(final EditionStateModel model) {
 		throw new UnsupportedOperationException();
 	}
 }

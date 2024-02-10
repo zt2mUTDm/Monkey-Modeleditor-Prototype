@@ -85,6 +85,11 @@ public final class GeometryEditable extends SpatialEditable {
 		newGeo.setLocalScale(geo.getLocalScale());
 		newGeo.setLocalRotation(geo.getLocalRotation());
 		newGeo.setMaterial(geo.getMaterial().clone());
+		
+		for(final ControlEditable c:getControls()) {
+			newGeo.addControl(c.createControl());
+		}
+		
 		return(newGeo);
 	}
 	

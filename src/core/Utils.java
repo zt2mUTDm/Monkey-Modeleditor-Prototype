@@ -12,6 +12,7 @@ import online.money_daisuki.api.base.models.SetableMutableSingleValueModel;
 import online.money_daisuki.api.base.models.SetableMutableSingleValueModelImpl;
 
 public final class Utils {
+	
 	private static boolean excepted;
 	
 	public static void enqueueAndWait(final Application app, final Runnable run) {

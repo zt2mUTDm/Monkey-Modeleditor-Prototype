@@ -7,7 +7,7 @@ import java.util.LinkedList;
 
 import com.google.common.base.Objects;
 
-import core.GridMode;
+import core.ui.swing.GridMode;
 import online.money_daisuki.api.base.Requires;
 import online.money_daisuki.api.base.ValueChangedHandler;
 import online.money_daisuki.api.io.json.DefaultJsonList;

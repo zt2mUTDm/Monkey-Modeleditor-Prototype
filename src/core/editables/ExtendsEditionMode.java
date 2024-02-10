@@ -9,10 +9,33 @@ import online.money_daisuki.api.misc.mapping.FinalMapping;
 import online.money_daisuki.api.misc.mapping.Mapping;
 
 public final class ExtendsEditionMode implements EditionMode {
-	private final BoxMeshEditable box;
+	private final ValueIo<Vector3f> io;
 	
-	public ExtendsEditionMode(final BoxMeshEditable box) {
-		this.box = Requires.notNull(box, "box == null");
+	public ExtendsEditionMode(final BoxMeshEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Vector3f>() {
+			@Override
+			public Vector3f get() {
+				return(parent.getExtends());
+			}
+			@Override
+			public void set(final Vector3f newValue) {
+				parent.setExtends(newValue);
+			}
+		};
+	}
+	public ExtendsEditionMode(final BoxCollisionShapeEditable parent) {
+		Requires.notNull(parent, "parent == null");
+		io = new ValueIo<Vector3f>() {
+			@Override
+			public Vector3f get() {
+				return(parent.getExtends());
+			}
+			@Override
+			public void set(final Vector3f newValue) {
+				parent.setExtends(newValue);
+			}
+		};
 	}
 	
 	@Override
@@ -22,22 +45,22 @@ public final class ExtendsEditionMode implements EditionMode {
 	
 	@Override
 	public Vector3f get() {
-		return(box.getExtends());
+		return(io.get());
 	}
 	
 	@Override
 	public Mapping<Runnable, Runnable> createChangeCommand(final Editable source, final Object value) {
-		final Vector3f curName = box.getExtends();
-		final Vector3f newName = ((Vector3f) value);
+		final Vector3f cur = get();
+		final Vector3f next = ((Vector3f) value);
 		return(new FinalMapping<>(new Runnable() {
 			@Override
 			public void run() {
-				box.setExtends(newName);
+				io.set(next);
 			}
 		}, new Runnable() {
 			@Override
 			public void run() {
-				box.setExtends(curName);
+				io.set(cur);
 			}
 		}));
 	}
@@ -53,7 +76,7 @@ public final class ExtendsEditionMode implements EditionMode {
 	}
 	
 	@Override
-	public EditionState createEditionState(EditionStateModel model) {
+	public EditionState createEditionState(final EditionStateModel model) {
 		throw new UnsupportedOperationException();
 	}
 }

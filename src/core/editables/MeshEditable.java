@@ -8,7 +8,6 @@ import java.util.List;
 
 import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
-import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
 
 import online.money_daisuki.api.base.DataSink;
@@ -30,11 +29,6 @@ public class MeshEditable implements Editable {
 	
 	protected void addEditionMode(final EditionMode mode) {
 		this.modes.add(Requires.notNull(mode, "mode == null"));
-	}
-	
-	@Override
-	public Spatial getSpatial() {
-		return(node);
 	}
 	
 	@Override

@@ -14,7 +14,7 @@ import com.jme3.input.InputManager;
 
 import core.setting.ModelSetting;
 import core.setting.Setting;
-import jme3utilities.ViewPortAppState;
+import core.ui.swing.SwingUi;
 import online.money_daisuki.api.base.ArgumentHandler;
 import online.money_daisuki.api.base.ArgumentParserResult;
 
@@ -60,19 +60,30 @@ public class Main {
 				state.setDebugEnabled(true);
 				getStateManager().attach(state);
 				
-				getStateManager().attach(new ViewPortAppState());
+				getStateManager().attach(new ViewportAppState());
 				final SimpleApplication myself = this;
 				
-				EventQueue.invokeLater(new Runnable() {
-					@Override
-					public void run() {
-						final ModelEditorUi ui = new ModelEditorUi(myself, setting.getModel(ModelSetting.class));
-						ui.show();
-					}
-				});
+				final boolean swing = true;
+				
+				if(swing) {
+					EventQueue.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							final SwingUi ui = new SwingUi(myself, setting.getModel(ModelSetting.class));
+							ui.show();
+						}
+					});
+				}
 			}
 		};
 		app.setPauseOnLostFocus(false);
+		
+		
+		/*final AppSettings newSetting = new AppSettings(true);
+		newSetting.setFrameRate(60);
+		newSetting.setGammaCorrection(true);
+		newSetting.setCustomRenderer(LwjglContext.class);
+		app.setSettings(newSetting);*/
 		app.start();
 	}
 	

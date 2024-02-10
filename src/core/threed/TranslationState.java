@@ -25,8 +25,8 @@ import com.jme3.scene.shape.Box;
 import com.jme3.util.TempVars;
 
 import cams.EditorCamera;
-import core.GridMode;
 import core.editables.EditionMode;
+import core.ui.swing.GridMode;
 import online.money_daisuki.api.base.Requires;
 import online.money_daisuki.api.base.ValueChangedHandler;
 import online.money_daisuki.api.base.models.SetableMutableSingleValueModel;

@@ -15,3 +15,5 @@ local.properties
 /.settings/
 /.project
 /.classpath
+/test/
+/hs_err_pid*.log

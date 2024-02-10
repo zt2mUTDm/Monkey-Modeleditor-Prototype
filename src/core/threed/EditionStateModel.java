@@ -1,6 +1,6 @@
 package core.threed;
 
-import core.GridMode;
+import core.ui.swing.GridMode;
 import online.money_daisuki.api.misc.mapping.Mapping;
 
 public interface EditionStateModel {
