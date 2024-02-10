@@ -53,6 +53,7 @@ public abstract class SpatialEditable implements Editable {
 				}
 			} else if(control instanceof PhysicsControl) {
 				controls.add(PhysicsControlEditable.valueOf((PhysicsControl)control));
+				app.getStateManager().getState(BulletAppState.class).getPhysicsSpace().add(control);
 			} else if(control instanceof SkinningControl) {
 				controls.add(SkinningControlEditable.valueOf((SkinningControl)control));
 			} else {

@@ -1641,7 +1641,7 @@ public final class SwingUi {
 		} else if(obj instanceof GeometryEditable) {
 			final GeometryEditable asGeo = (GeometryEditable)obj;
 			node.add(new DefaultMutableTreeNode(asGeo.getMesh()));
-			setObjectControls(asGeo, parent);
+			setObjectControls(asGeo, node);
 		}
 	}
 	private void setObjectControls(final SpatialEditable obj, final DefaultMutableTreeNode parent) {
