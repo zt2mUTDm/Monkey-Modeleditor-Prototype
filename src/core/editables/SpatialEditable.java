@@ -18,7 +18,6 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.control.Control;
-import com.jme3.util.clone.Cloner;
 
 import online.money_daisuki.api.base.Requires;
 
@@ -40,6 +39,26 @@ public abstract class SpatialEditable implements Editable {
 		addMode(new LocalScaleEditionMode(this));
 		
 		this.controls = new LinkedList<>();
+		
+		for(int i = 0, size = spatial.getNumControls(); i < size; i++) {
+			final Control control = spatial.getControl(i);
+			
+			if(control instanceof AnimControl) {
+				controls.add(AnimControlEditable.valueOf((AnimControl)control));
+			} else if(control instanceof AnimComposer) {
+				controls.add(AnimComposerEditable.valueOf((AnimComposer)control));
+				
+				if(spatial.getControl(AnimationControl.class) == null) {
+					controls.add(AnimationControlEditable.valueOf(new AnimationControl()));
+				}
+			} else if(control instanceof PhysicsControl) {
+				controls.add(PhysicsControlEditable.valueOf((PhysicsControl)control));
+			} else if(control instanceof SkinningControl) {
+				controls.add(SkinningControlEditable.valueOf((SkinningControl)control));
+			} else {
+				controls.add(ControlEditable.valueOf(control));
+			}
+		}
 	}
 	protected void addMode(final EditionMode mode) {
 		this.modes.add(Requires.notNull(mode, "mode == null"));
@@ -151,35 +170,6 @@ public abstract class SpatialEditable implements Editable {
 			edit = NodeEditable.valueOf(app, (Node)spatial);
 		} else {
 			throw new IllegalAccessError("Unknown spatial type");
-		}
-		
-		edit.setName(spatial.getName() != null ? spatial.getName() : "");
-		edit.setLocalTranslation(spatial.getLocalTranslation());
-		edit.setLocalRotation(spatial.getLocalRotation());
-		edit.setLocalScale(spatial.getLocalScale());
-		
-		final Cloner cloner = new Cloner();
-		for(int i = 0, size = spatial.getNumControls(); i < size; i++) {
-			final Control control = spatial.getControl(i);
-			
-			if(control instanceof AnimControl) {
-				edit.addControl(AnimControlEditable.valueOf((AnimControl)control));
-			} else if(control instanceof AnimComposer) {
-				final AnimComposer copy = cloner.clone((AnimComposer)control);
-				copy.setSpatial(null);
-				
-				edit.addControl(AnimComposerEditable.valueOf(copy));
-				
-				if(spatial.getControl(AnimationControl.class) == null) {
-					edit.addControl(AnimationControlEditable.valueOf(new AnimationControl()));
-				}
-			} else if(control instanceof PhysicsControl) {
-				edit.addControl(PhysicsControlEditable.valueOf((PhysicsControl)control));
-			} else if(control instanceof SkinningControl) {
-				edit.addControl(SkinningControlEditable.valueOf((SkinningControl)control));
-			} else {
-				edit.addControl(ControlEditable.valueOf(control));
-			}
 		}
 		return(edit);
 	}

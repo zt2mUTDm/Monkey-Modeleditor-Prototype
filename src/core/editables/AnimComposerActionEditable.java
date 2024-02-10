@@ -19,7 +19,6 @@ public final class AnimComposerActionEditable implements Editable {
 	@Override
 	public void setSelected(final boolean b) {
 		final AnimComposer c = composer.getControl();
-		
 		if(b) {
 			c.setCurrentAction(name);
 		} else {

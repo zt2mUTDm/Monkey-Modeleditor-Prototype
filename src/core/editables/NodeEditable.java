@@ -12,9 +12,13 @@ import com.jme3.util.clone.Cloner;
 public class NodeEditable extends SpatialEditable {
 	private final List<SpatialEditable> childs;
 	
-	public NodeEditable(final Application app, final Node node) {
+	protected NodeEditable(final Application app, final Node node) {
 		super(app, node);
 		this.childs = new ArrayList<>();
+		
+		for(final Spatial child:node.getChildren()) {
+			childs.add(SpatialEditable.valueOf(app, child));
+		}
 	}
 	
 	@Override
@@ -24,9 +28,11 @@ public class NodeEditable extends SpatialEditable {
 	
 	public void addChild(final SpatialEditable child) {
 		childs.add(child);
+		getSpatial().attachChild(child.getSpatial());
 	}
 	public void addChild(final SpatialEditable child, final int index) {
 		childs.add(index, child);
+		getSpatial().attachChildAt(child.getSpatial(), index);
 	}
 	public int getChildIndex(final SpatialEditable child) {
 		return(childs.indexOf(child));
@@ -66,12 +72,6 @@ public class NodeEditable extends SpatialEditable {
 	}
 	
 	public static NodeEditable valueOf(final Application app, final Node node) {
-		final NodeEditable nodeEditable = new NodeEditable(app, new Cloner().clone(node));
-		
-		for(final Spatial child:node.getChildren()) {
-			nodeEditable.addChild(SpatialEditable.valueOf(app, child));
-		}
-		
-		return(nodeEditable);
+		return(new NodeEditable(app, node));
 	}
 }

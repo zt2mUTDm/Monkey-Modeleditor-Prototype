@@ -16,7 +16,7 @@ public final class GeometryEditable extends SpatialEditable {
 	private MeshEditable mesh;
 	private DataSink<? super MeshEditable> meshChangedListener;
 	
-	public GeometryEditable(final Application app, final Geometry geo, final MeshEditable mesh) {
+	private GeometryEditable(final Application app, final Geometry geo, final MeshEditable mesh) {
 		super(app, geo);
 		
 		setMesh(Requires.notNull(mesh, "mesh == null"));
@@ -93,7 +93,10 @@ public final class GeometryEditable extends SpatialEditable {
 		return(newGeo);
 	}
 	
-	static GeometryEditable valueOf(final Application app, final Geometry geo) {
-		return(new GeometryEditable(app, geo, MeshEditable.valueOf(geo.getMesh())));
+	public static GeometryEditable valueOf(final Application app, final Geometry geo) {
+		return(valueOf(app, geo, MeshEditable.valueOf(geo.getMesh())));
+	}
+	public static GeometryEditable valueOf(final Application app, final Geometry geo, final MeshEditable editable) {
+		return(new GeometryEditable(app, geo, editable));
 	}
 }

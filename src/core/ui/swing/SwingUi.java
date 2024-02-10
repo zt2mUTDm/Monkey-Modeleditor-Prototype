@@ -553,7 +553,7 @@ public final class SwingUi {
 					final JMenuItem newNodeItem = new JMenuItem(new AbstractAction("Node") {
 						@Override
 						public void actionPerformed(final ActionEvent e) {
-							final NodeEditable newNode = new NodeEditable(app, new Node(""));
+							final NodeEditable newNode = NodeEditable.valueOf(app, new Node(""));
 							newNode.setName("New node");
 							createEditable(newNode, selectedNode);
 						}
@@ -611,7 +611,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, boxEditable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, boxEditable);
 							
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
@@ -632,7 +632,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
@@ -652,7 +652,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
@@ -672,7 +672,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
@@ -692,7 +692,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
@@ -709,7 +709,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
@@ -726,7 +726,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
@@ -743,7 +743,7 @@ public final class SwingUi {
 							mat.setColor("Color", ColorRGBA.randomColor());
 							geo.setMaterial(mat);
 							
-							final GeometryEditable geoEdit = new GeometryEditable(app, geo, editable);
+							final GeometryEditable geoEdit = GeometryEditable.valueOf(app, geo, editable);
 							createEditable(geoEdit, selectedNode);
 							openFileChanged.sink(Boolean.TRUE);
 						}
