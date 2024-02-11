@@ -541,9 +541,10 @@ public final class SwingUi {
 					final DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) path.getLastPathComponent();
 					final Editable obj = (Editable) selectedNode.getUserObject();
 					
+					final boolean isRoot = selectedNode.getParent() == null;
 					final boolean isSpatial = obj instanceof SpatialEditable;
 					final boolean isNode = obj instanceof NodeEditable;
-					final boolean isSkinningNode = isNode && selectedNode.getParent() != null &&
+					final boolean isSkinningNode = isNode && !isRoot &&
 							((DefaultMutableTreeNode) selectedNode.getParent()).getUserObject() instanceof SkinningControlEditable;
 					final boolean isControl = obj instanceof ControlEditable;
 					
@@ -856,18 +857,6 @@ public final class SwingUi {
 					
 					addMenu.addSeparator();
 					
-					final JMenuItem makeChildToRootNode = new JMenuItem("Make child to root node");
-					makeChildToRootNode.addActionListener(new ActionListener() {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							
-						}
-					});
-					makeChildToRootNode.setEnabled(false);
-					addMenu.add(makeChildToRootNode);
-					
-					addMenu.addSeparator();
-					
 					final JMenuItem addActionLinks = new JMenuItem("Map string to action");
 					addActionLinks.addActionListener(new ActionListener() {
 						@Override
@@ -1091,6 +1080,89 @@ public final class SwingUi {
 									!(obj instanceof AnimComposerEditable) &&
 									!(((ControlEditable)obj).getControl() instanceof SkinningControl)));
 					menu.add(removeMenu);
+					
+					final JMenuItem removeButAddChildsToParentMenu = new JMenuItem(new AbstractAction("Remove but add childs to parent.") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final NodeEditable thisNode = (NodeEditable) obj;
+							if(JOptionPane.showConfirmDialog(null, "Really delete \"" + thisNode.getName() + "\" and append child spatials to parent?",
+									"", JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION) {
+								return;
+							}
+							
+							final DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode) selectedNode.getParent();
+							
+							final NodeEditable thisNodeEditable = (NodeEditable) obj;
+							final NodeEditable parentNodeEditable = (NodeEditable) ((DefaultMutableTreeNode) selectedNode.getParent()).getUserObject();
+							
+							final Collection<DefaultMutableTreeNode> childs = new LinkedList<>();
+							for(int i = 0, size = selectedNode.getChildCount(); i < size; i++) {
+								final DefaultMutableTreeNode child = (DefaultMutableTreeNode) selectedNode.getChildAt(i);
+								if(child.getUserObject() instanceof SpatialEditable) {
+									childs.add(child);
+								}
+							}
+							
+							final int nodeEditableIndex = parentNodeEditable.getChildIndex(thisNodeEditable);
+							final int nodeIndex = parentNode.getIndex(selectedNode);
+							
+							
+							execute(new FinalMapping<>(
+									new Runnable() {
+										@Override
+										public void run() {
+											parentNodeEditable.removeChild(thisNodeEditable);
+											for(final DefaultMutableTreeNode child:childs) {
+												final SpatialEditable childEditable = (SpatialEditable) child.getUserObject();
+												thisNodeEditable.removeChild(childEditable);
+												parentNodeEditable.addChild(childEditable);
+											}
+											
+											EventQueue.invokeLater(new Runnable() {
+												@Override
+												public void run() {
+													ui.getSceneGraphTreeModel().removeNodeFromParent(selectedNode);
+													
+													int i = nodeIndex;
+													for(final DefaultMutableTreeNode child:childs) {
+														child.removeFromParent();
+														parentNode.insert(child, i++);
+													}
+													ui.getSceneGraphTreeModel().nodeStructureChanged(parentNode);
+													
+													ui.getSceneGraphTree().setSelectionPath(new TreePath(selectedNode.getPath()));
+												}
+											});
+										}
+									},
+									new Runnable() {
+										@Override
+										public void run() {
+											for(final DefaultMutableTreeNode child:childs) {
+												final SpatialEditable childEditable = (SpatialEditable) child.getUserObject();
+												parentNodeEditable.removeChild(childEditable);
+												thisNodeEditable.addChild(childEditable, nodeEditableIndex);
+											}
+											parentNodeEditable.addChild(thisNodeEditable, 0);
+											
+											EventQueue.invokeLater(new Runnable() {
+												@Override
+												public void run() {
+													for(final DefaultMutableTreeNode child:childs) {
+														child.removeFromParent();
+														selectedNode.add(child);
+													}
+													parentNode.insert(selectedNode, nodeIndex);
+													ui.getSceneGraphTreeModel().nodeStructureChanged(parentNode);
+												}
+											});
+										}
+									}
+							));
+						}
+					});
+					removeButAddChildsToParentMenu.setEnabled(isNode && !isSkinningNode && !isRoot);
+					menu.add(removeButAddChildsToParentMenu);
 					
 					menu.show(tree, e.getX(), e.getY());
 				}
