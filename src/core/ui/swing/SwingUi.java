@@ -543,6 +543,8 @@ public final class SwingUi {
 					
 					final boolean isSpatial = obj instanceof SpatialEditable;
 					final boolean isNode = obj instanceof NodeEditable;
+					final boolean isSkinningNode = isNode && selectedNode.getParent() != null &&
+							((DefaultMutableTreeNode) selectedNode.getParent()).getUserObject() instanceof SkinningControlEditable;
 					final boolean isControl = obj instanceof ControlEditable;
 					
 					final JPopupMenu menu = new JPopupMenu();
@@ -550,7 +552,7 @@ public final class SwingUi {
 					final JMenu addMenu = new JMenu("Add");
 					menu.add(addMenu);
 					
-					final JMenuItem newNodeItem = new JMenuItem(new AbstractAction("Node") {
+					final JMenuItem addNodeItem = new JMenuItem(new AbstractAction("Node") {
 						@Override
 						public void actionPerformed(final ActionEvent e) {
 							final NodeEditable newNode = NodeEditable.valueOf(app, new Node(""));
@@ -558,8 +560,112 @@ public final class SwingUi {
 							createEditable(newNode, selectedNode);
 						}
 					});
-					newNodeItem.setEnabled(isNode);
-					addMenu.add(newNodeItem);
+					addNodeItem.setEnabled(isNode);
+					addMenu.add(addNodeItem);
+					
+					final JMenuItem addNodeBeforeItem = new JMenuItem(new AbstractAction("Node before") {
+						@Override
+						public void actionPerformed(final ActionEvent e) {
+							final SpatialEditable thisSpatialEditable = (SpatialEditable) obj;
+							
+							final DefaultMutableTreeNode parentNode = (DefaultMutableTreeNode) selectedNode.getParent();
+							if(parentNode != null) {
+								final NodeEditable parentNodeEditable = (NodeEditable) parentNode.getUserObject();
+								
+								final Node newJmeNode = new Node("New node");
+								final NodeEditable newNodeEditable = NodeEditable.valueOf(app, newJmeNode);
+								final DefaultMutableTreeNode newNode = new DefaultMutableTreeNode(newNodeEditable);
+								
+								final int currentEditableIndex = parentNodeEditable.getChildIndex(thisSpatialEditable);
+								final int currentNodeIndex = selectedNode.getParent().getIndex(selectedNode);
+								
+								execute(new FinalMapping<>(
+										new Runnable() {
+											@Override
+											public void run() {
+												parentNodeEditable.removeChild(thisSpatialEditable);
+												newNodeEditable.addChild(thisSpatialEditable);
+												parentNodeEditable.addChild(newNodeEditable);
+												
+												EventQueue.invokeLater(new Runnable() {
+													@Override
+													public void run() {
+														ui.getSceneGraphTreeModel().removeNodeFromParent(selectedNode);
+														parentNode.insert(newNode, currentNodeIndex);
+														newNode.add(selectedNode);
+														
+														ui.getSceneGraphTreeModel().nodesWereInserted(parentNode, new int[] {
+																currentNodeIndex
+														});
+													}
+												});
+											}
+										},
+										new Runnable() {
+											@Override
+											public void run() {
+												newNodeEditable.removeChild(thisSpatialEditable);
+												parentNodeEditable.removeChild(newNodeEditable);
+												parentNodeEditable.addChild(thisSpatialEditable, currentEditableIndex);
+												
+												EventQueue.invokeLater(new Runnable() {
+													@Override
+													public void run() {
+														ui.getSceneGraphTreeModel().removeNodeFromParent(selectedNode);
+														ui.getSceneGraphTreeModel().removeNodeFromParent(newNode);
+														
+														parentNode.insert(selectedNode, currentNodeIndex);
+														
+														ui.getSceneGraphTreeModel().nodesWereInserted(parentNode, new int[] {
+																currentNodeIndex
+														});
+													}
+												});
+											}
+										}
+								));
+							} else {
+								final Spatial thisSpatial = thisSpatialEditable.getSpatial();
+								final Node parentJmeNode = thisSpatial.getParent();
+								
+								final Node newJmeNodeEditable = new Node("New node");
+								final NodeEditable newNodeEditable = NodeEditable.valueOf(app, newJmeNodeEditable);
+								final DefaultMutableTreeNode newNode = new DefaultMutableTreeNode(newNodeEditable);
+								
+								execute(new FinalMapping<>(
+										new Runnable() {
+											@Override
+											public void run() {
+												thisSpatial.removeFromParent();
+												selectedNode.removeFromParent();
+												
+												newNodeEditable.addChild(thisSpatialEditable);
+												
+												parentJmeNode.attachChild(newNodeEditable.getSpatial());
+												newNode.add(selectedNode);
+												
+												ui.getSceneGraphTreeModel().setRoot(newNode);
+											}
+										},
+										new Runnable() {
+											@Override
+											public void run() {
+												selectedNode.removeFromParent();
+												newNode.removeFromParent();
+												
+												newNodeEditable.removeChild(thisSpatialEditable);
+												
+												parentJmeNode.attachChild(newJmeNodeEditable);
+												
+												ui.getSceneGraphTreeModel().setRoot(selectedNode);
+											}
+										}
+								));
+							}
+						}
+					});
+					addNodeBeforeItem.setEnabled(isSpatial && !isSkinningNode);
+					addMenu.add(addNodeBeforeItem);
 					
 					/*addMenu.add(new JMenuItem(new AbstractAction("AudioNode") {
 						@Override
@@ -571,7 +677,6 @@ public final class SwingUi {
 					}));*/
 					
 					addMenu.addSeparator();
-					
 					
 					final JMenuItem importModelItem = new JMenuItem(new AbstractAction("Import model") {
 						@Override
@@ -750,17 +855,6 @@ public final class SwingUi {
 					}));
 					
 					addMenu.addSeparator();
-					
-					final JMenuItem addNodeAsFirstItem = new JMenuItem("Add node as root");
-					addNodeAsFirstItem.addActionListener(new ActionListener() {
-						@Override
-						public void actionPerformed(final ActionEvent e) {
-							
-						}
-					});
-					addNodeAsFirstItem.setEnabled(false);
-					addMenu.add(addNodeAsFirstItem);
-					
 					
 					final JMenuItem makeChildToRootNode = new JMenuItem("Make child to root node");
 					makeChildToRootNode.addActionListener(new ActionListener() {
@@ -991,7 +1085,7 @@ public final class SwingUi {
 						}
 					});
 					removeMenu.setEnabled(obj instanceof AnimationControlMappingEditable ||
-							(isSpatial && selectedNode.getParent() != null) ||
+							(isSpatial && selectedNode.getParent() != null && !isSkinningNode) ||
 							(isControl && !(obj instanceof AnimationControlEditable) &&
 									!(obj instanceof AnimControlEditable) &&
 									!(obj instanceof AnimComposerEditable) &&
@@ -1637,7 +1731,7 @@ public final class SwingUi {
 				final SpatialEditable child = asNode.getChild(i);
 				setObject0(child, node);
 			}
-			setObjectControls(asNode, parent);
+			setObjectControls(asNode, node);
 		} else if(obj instanceof GeometryEditable) {
 			final GeometryEditable asGeo = (GeometryEditable)obj;
 			node.add(new DefaultMutableTreeNode(asGeo.getMesh()));
